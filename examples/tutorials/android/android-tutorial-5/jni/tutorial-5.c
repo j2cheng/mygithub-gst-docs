@@ -395,6 +395,33 @@ app_function (void *userdata)
 
   GST_DEBUG ("Creating pipeline in CustomData at %p", data);
 
+  //Crestron change starts
+  {
+        GstRegistry *registry = NULL;
+        GstElementFactory *factory = NULL;
+
+//        registry = gst_registry_get_default ();
+          registry = gst_registry_get();
+          if (!registry)
+              GST_DEBUG ("Creating GST_ELEMENT_FACTORY registry: %p", registry);
+
+        factory = gst_element_factory_find ("amcviddec-omxgooglehevcdecoder");
+        GST_DEBUG ("Creating GST_ELEMENT_FACTORY amcviddec-omxgooglehevcdecoder: %p", factory);
+
+        factory = gst_element_factory_find ("amcviddec-omxqcomvideodecoderavc");
+        GST_DEBUG ("Creating GST_ELEMENT_FACTORY amcviddec-omxqcomvideodecoderavc: %p", factory);
+
+        factory = gst_element_factory_find ("amcviddec-omxqcomvideodecoderhevc");
+        if(factory && registry)
+        {
+            GST_DEBUG ("Creating GST_ELEMENT_FACTORY amcviddec-omxqcomvideodecoderhevc: %p", factory);
+
+            //gst_plugin_feature_set_rank (GST_PLUGIN_FEATURE (factory), GST_RANK_PRIMARY + 1);
+            //gst_registry_add_feature (registry, GST_PLUGIN_FEATURE (factory));
+        }
+  }
+  //Crestron change ends
+
   /* Create our own GLib Main Context and make it the default one */
   data->context = g_main_context_new ();
   g_main_context_push_thread_default (data->context);
@@ -549,6 +576,43 @@ gst_native_pause (JNIEnv * env, jobject thiz)
   data->is_live |=
       (gst_element_set_state (data->pipeline,
           GST_STATE_PAUSED) == GST_STATE_CHANGE_NO_PREROLL);
+
+
+  //Crestron change starts
+  /**
+   *  set path GST_DEBUG_DUMP_DOT_DIR to /data/app/gst-graph
+   */
+  if(data->pipeline)
+  {
+    gchar *full_file_name = NULL;
+    FILE *out;
+    GstBin * bin = data->pipeline;
+
+    //Note: this app has its own space :  /data/data/org.freedesktop.gstreamer.tutorials.tutorial_5
+    //      and lib file is installed in: /data/app/org.freedesktop.gstreamer.tutorials.tutorial_5-2W78GrP_rHsTe_bHsPvJZg==
+    GstDebugGraphDetails details = GST_DEBUG_GRAPH_SHOW_ALL;
+    full_file_name = g_strdup_printf ("%s" G_DIR_SEPARATOR_S "%s.dot",
+                                      "/data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/graph", "pipeline");
+    if ((out = fopen (full_file_name, "wb")))
+    {
+      gchar *buf;
+
+      buf = gst_debug_bin_to_dot_data (bin, details);
+      fputs (buf, out);
+
+      g_free (buf);
+      fclose (out);
+
+      GST_INFO ("wrote bin graph to : '%s'", full_file_name);
+    }
+    else
+    {
+      GST_WARNING ("Failed to open file '%s' for writing: %s", full_file_name,
+                   g_strerror (errno));
+    }
+    g_free (full_file_name);
+  }
+  //Crestron change ends
 }
 
 /* Instruct the pipeline to seek to a different position */
@@ -623,6 +687,16 @@ gst_native_surface_init (JNIEnv * env, jobject thiz, jobject surface)
   }
   data->native_window = new_native_window;
 
+  //Crestron changestarts
+  {
+    int queuesToNativeWindow = 0;
+    GST_ERROR("ANativeWindow format is 0x%x", ANativeWindow_getFormat(new_native_window));
+//    int err = ANativeWindow_query(new_native_window)   query(NATIVE_WINDOW_QUEUES_TO_WINDOW_COMPOSER, &queuesToNativeWindow);
+//    NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS
+//            ANativeWindow_query
+  }
+  //Crestron change ends
+
   check_initialization_complete (data);
 }
 
@@ -666,6 +740,16 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
   JNIEnv *env = NULL;
 
   java_vm = vm;
+
+  //Crestron change starts
+  setenv("GST_DEBUG","*:5",1);
+
+  setenv("GST_AMC_IGNORE_UNKNOWN_COLOR_FORMATS", "yes", 1);
+  /**
+   * did not work,we are not using gst-launch-1.0 here.
+   * setenv("GST_DEBUG_DUMP_DOT_DIR","/data/app/gst-graph",1);
+   * */
+  //Crestron change ends
 
   if ((*vm)->GetEnv (vm, (void **) &env, JNI_VERSION_1_4) != JNI_OK) {
     __android_log_print (ANDROID_LOG_ERROR, "tutorial-5",

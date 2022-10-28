@@ -12,13 +12,13 @@
     <TextView
         android:id="@+id/fdrowtext"
         android:layout_width="0dip"
-        android:layout_height="36dp"
+        android:layout_height="10dp"
         android:layout_weight="1"
         android:ellipsize="marquee"
         android:gravity="center_vertical"
         android:marqueeRepeatLimit="marquee_forever"
         android:scrollHorizontally="true"
         android:singleLine="true"
-        android:textSize="23dp" />
+        android:textSize="8sp" />
 
 </LinearLayout>

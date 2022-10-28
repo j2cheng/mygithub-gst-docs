@@ -1,5 +1,7 @@
 package org.freedesktop.gstreamer.tutorials.tutorial_5;
 
+import static android.view.View.SYSTEM_UI_FLAG_FULLSCREEN;
+
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -8,6 +10,14 @@ import java.util.TimeZone;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+
+//Crestron change starts
+//import android.opengl.GLES31;
+import android.content.pm.ActivityInfo;
+import android.content.res.Configuration;
+
+//Crestron change ends
+
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.PowerManager;
@@ -21,6 +31,8 @@ import android.widget.SeekBar;
 import android.widget.SeekBar.OnSeekBarChangeListener;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.media.MediaCodecList;
+import android.media.MediaCodecInfo;
 
 import org.freedesktop.gstreamer.GStreamer;
 import com.lamerman.FileDialog;
@@ -44,7 +56,11 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
     private int desired_position;         // Position where the users wants to seek to
     private String mediaUri;              // URI of the clip being played
 
-    private final String defaultMediaUri = "https://www.freedesktop.org/software/gstreamer-sdk/data/media/sintel_trailer-480p.ogv";
+    //private final String defaultMediaUri = "https://www.freedesktop.org/software/gstreamer-sdk/data/media/sintel_trailer-480p.ogv";
+    private final String defaultMediaUri = "rtsp://10.116.165.119:8554/test";
+    //private final String defaultMediaUri = "rtsp://\"CrestronTest\":\"AVIcrestron34!\"@62.31.255.82:53554/Streaming/Channels/102";
+
+
 
     static private final int PICK_FILE_CODE = 1;
     private String last_folder;
@@ -72,39 +88,50 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
         wake_lock = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK, "GStreamer tutorial 5");
         wake_lock.setReferenceCounted(false);
 
-        ImageButton play = (ImageButton) this.findViewById(R.id.button_play);
-        play.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                is_playing_desired = true;
-                wake_lock.acquire();
-                nativePlay();
-            }
-        });
+//        ImageButton play = (ImageButton) this.findViewById(R.id.button_play);
+//        play.setOnClickListener(new OnClickListener() {
+//            public void onClick(View v) {
+//                is_playing_desired = true;
+//                wake_lock.acquire();
+//                nativePlay();
+//            }
+//        });
+//
+//        ImageButton pause = (ImageButton) this.findViewById(R.id.button_stop);
+//        pause.setOnClickListener(new OnClickListener() {
+//            public void onClick(View v) {
+//                is_playing_desired = false;
+//                wake_lock.release();
+//                nativePause();
+//            }
+//        });
 
-        ImageButton pause = (ImageButton) this.findViewById(R.id.button_stop);
-        pause.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                is_playing_desired = false;
-                wake_lock.release();
-                nativePause();
-            }
-        });
-
-        ImageButton select = (ImageButton) this.findViewById(R.id.button_select);
-        select.setOnClickListener(new OnClickListener() {
-            public void onClick(View v) {
-                Intent i = new Intent(getBaseContext(), FileDialog.class);
-                i.putExtra(FileDialog.START_PATH, last_folder);
-                startActivityForResult(i, PICK_FILE_CODE);
-            }
-        });
+//        ImageButton select = (ImageButton) this.findViewById(R.id.button_select);
+//        select.setOnClickListener(new OnClickListener() {
+//            public void onClick(View v) {
+//                Intent i = new Intent(getBaseContext(), FileDialog.class);
+//                i.putExtra(FileDialog.START_PATH, last_folder);
+//                startActivityForResult(i, PICK_FILE_CODE);
+//            }
+//        });
 
         SurfaceView sv = (SurfaceView) this.findViewById(R.id.surface_video);
         SurfaceHolder sh = sv.getHolder();
         sh.addCallback(this);
 
-        SeekBar sb = (SeekBar) this.findViewById(R.id.seek_bar);
-        sb.setOnSeekBarChangeListener(this);
+        //setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        //sv.setSystemUiVisibility(SYSTEM_UI_FLAG_FULLSCREEN);
+        //setContentView(sv);
+        //sv.setLayoutDirection(View.LAYOUT_DIRECTION_INHERIT);
+        Configuration newConfig = getResources().getConfiguration();
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            Log.i ("GStreamer", "onCreate landscape");
+        } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT){
+            Log.i ("GStreamer", "onCreate portrait");
+        }
+
+        //SeekBar sb = (SeekBar) this.findViewById(R.id.seek_bar);
+        //sb.setOnSeekBarChangeListener(this);
 
         // Retrieve our previous state, or initialize it to default values
         if (savedInstanceState != null) {
@@ -139,10 +166,64 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
                 " duration: " + duration + " uri: " + mediaUri);
 
         // Start with disabled buttons, until native code is initialized
-        this.findViewById(R.id.button_play).setEnabled(false);
-        this.findViewById(R.id.button_stop).setEnabled(false);
+//        this.findViewById(R.id.button_play).setEnabled(false);
+//        this.findViewById(R.id.button_stop).setEnabled(false);
 
         nativeInit();
+
+        //Crestron change starts
+//        int count = MediaCodecList.getCodecCount();
+//        for (int i = 0; i < count; ++i) {
+//            MediaCodecInfo info = MediaCodecList.getCodecInfoAt(i);
+//            if (info.isEncoder()) {
+//                Log.i ("GStreamer", "This [" + i + "] is encoder ");
+//
+//                String[] supportedTypes = info.getSupportedTypes();
+//                for (int j = 0; j < supportedTypes.length; ++j) {
+//                    Log.i ("GStreamer", "This encoder name is: " + info.getName());
+//                }
+//            }
+//            else
+//            {
+//                Log.i ("GStreamer", "This [" + i + "] is decoder ");
+//
+//                //static
+//                //bool MediaCodecList::isSoftwareCodec(const AString &componentName) {
+//                //return componentName.startsWithIgnoreCase("OMX.google.")
+//                //        || componentName.startsWithIgnoreCase("c2.android.")
+//                //        || (!componentName.startsWithIgnoreCase("OMX.")
+//                //        && !componentName.startsWithIgnoreCase("c2."));
+//
+//
+//                String[] supportedTypes = info.getSupportedTypes();
+//                for (int j = 0; j < supportedTypes.length; ++j) {
+//                    Log.i ("GStreamer", "This decoder name is: " + info.getName());
+//                }
+//
+//            }
+//        }
+
+
+//        if (
+//                GLES20.glGetString(GLES20.GL_RENDERER) == null ||
+//                        GLES20.glGetString(GLES20.GL_VENDOR) == null ||
+//                        GLES20.glGetString(GLES20.GL_VERSION) == null ||
+//                        GLES20.glGetString(GLES20.GL_EXTENSIONS) == null ||
+//                        GLES10.glGetString(GLES10.GL_RENDERER) == null ||
+//                        GLES10.glGetString(GLES10.GL_VENDOR) == null ||
+//                        GLES10.glGetString(GLES10.GL_VERSION) == null ||
+//                        GLES10.glGetString(GLES10.GL_EXTENSIONS) == null) {
+//            // try to use SurfaceView
+//        } else {
+//            // try to use TextureView
+//        }
+
+//        Log.i ("GStreamer", "GLES31 GL_RENDERER is: " + GLES31.glGetString(GLES31.GL_RENDERER));
+//        Log.i ("GStreamer", "GLES31 GL_VENDOR is: " + GLES31.glGetString(GLES31.GL_VENDOR));
+//        Log.i ("GStreamer", "GLES31 GL_VERSION is: " + GLES31.glGetString(GLES31.GL_VERSION));
+
+
+        //Crestron change ends
     }
 
     protected void onSaveInstanceState (Bundle outState) {
@@ -191,7 +272,7 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
             nativePlay();
             wake_lock.acquire();
         } else {
-            nativePause();
+            nativePlay();//Crestron changed
             wake_lock.release();
         }
 
@@ -199,8 +280,9 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
         final Activity activity = this;
         runOnUiThread(new Runnable() {
             public void run() {
-                activity.findViewById(R.id.button_play).setEnabled(true);
-                activity.findViewById(R.id.button_stop).setEnabled(true);
+//                activity.findViewById(R.id.button_play).setEnabled(true);
+//                activity.findViewById(R.id.button_stop).setEnabled(true);
+                Log.i ("GStreamer", "  button_play  button_stop removed." );
             }
         });
     }
@@ -208,31 +290,31 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
     // The text widget acts as an slave for the seek bar, so it reflects what the seek bar shows, whether
     // it is an actual pipeline position or the position the user is currently dragging to.
     private void updateTimeWidget () {
-        TextView tv = (TextView) this.findViewById(R.id.textview_time);
-        SeekBar sb = (SeekBar) this.findViewById(R.id.seek_bar);
-        int pos = sb.getProgress();
-
-        SimpleDateFormat df = new SimpleDateFormat("HH:mm:ss");
-        df.setTimeZone(TimeZone.getTimeZone("UTC"));
-        String message = df.format(new Date (pos)) + " / " + df.format(new Date (duration));
-        tv.setText(message);
+//        TextView tv = (TextView) this.findViewById(R.id.textview_time);
+//        SeekBar sb = (SeekBar) this.findViewById(R.id.seek_bar);
+//        int pos = sb.getProgress();
+//
+//        SimpleDateFormat df = new SimpleDateFormat("HH:mm:ss");
+//        df.setTimeZone(TimeZone.getTimeZone("UTC"));
+//        String message = df.format(new Date (pos)) + " / " + df.format(new Date (duration));
+//        tv.setText(message);
     }
 
     // Called from native code
     private void setCurrentPosition(final int position, final int duration) {
-        final SeekBar sb = (SeekBar) this.findViewById(R.id.seek_bar);
+//        final SeekBar sb = (SeekBar) this.findViewById(R.id.seek_bar);
+//
+//        // Ignore position messages from the pipeline if the seek bar is being dragged
+//        if (sb.isPressed()) return;
 
-        // Ignore position messages from the pipeline if the seek bar is being dragged
-        if (sb.isPressed()) return;
-
-        runOnUiThread (new Runnable() {
-          public void run() {
-            sb.setMax(duration);
-            sb.setProgress(position);
-            updateTimeWidget();
-            sb.setEnabled(duration != 0);
-          }
-        });
+//        runOnUiThread (new Runnable() {
+//          public void run() {
+//            sb.setMax(duration);
+//            sb.setProgress(position);
+//            updateTimeWidget();
+//            sb.setEnabled(duration != 0);
+//          }
+//        });
         this.position = position;
         this.duration = duration;
     }
@@ -246,7 +328,7 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
     public void surfaceChanged(SurfaceHolder holder, int format, int width,
             int height) {
         Log.d("GStreamer", "Surface changed to format " + format + " width "
-                + width + " height " + height);
+                + width + ", height " + height);
         nativeSurfaceInit (holder.getSurface());
     }
 
@@ -262,7 +344,7 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
     // Called from native code when the size of the media changes or is first detected.
     // Inform the video surface about the new size and recalculate the layout.
     private void onMediaSizeChanged (int width, int height) {
-        Log.i ("GStreamer", "Media size changed to " + width + "x" + height);
+        Log.i ("GStreamer", "Media size changed to " + width + ", x" + height);
         final GStreamerSurfaceView gsv = (GStreamerSurfaceView) this.findViewById(R.id.surface_video);
         gsv.media_width = width;
         gsv.media_height = height;
@@ -306,4 +388,29 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
             setMediaUri();
         }
     }
+    //Crestron change starts
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+
+        // Checks the orientation of the screen
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+//            Toast.makeText(this, "landscape", Toast.LENGTH_SHORT).show();
+            Log.i("GStreamer", "onConfigurationChanged landscape");
+
+
+            //setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT){
+//            Toast.makeText(this, "portrait", Toast.LENGTH_SHORT).show();
+            Log.i("GStreamer", "onConfigurationChanged portrait");
+
+            //dsetRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+
+
+//            final GStreamerSurfaceView gsv = (GStreamerSurfaceView) this.findViewById(R.id.surface_video);
+//            gsv.setSystemUiVisibility(SYSTEM_UI_FLAG_FULLSCREEN);
+//            setContentView(gsv);
+            Log.i("GStreamer", "onConfigurationChanged set to full screen");
+        }
+    }//Crestron change ends
 }
