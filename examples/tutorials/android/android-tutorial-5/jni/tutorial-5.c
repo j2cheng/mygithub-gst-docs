@@ -9,6 +9,22 @@
 #include <gst/video/videooverlay.h>
 #include <pthread.h>
 
+//Crestron change starts
+// Android headers
+//#include "hardware/gralloc.h"           // for GRALLOC_USAGE_PROTECTED
+//#include "android/native_window.h"      // for ANativeWindow_ functions
+//
+//#include <gui/GLConsumer.h>
+//#include <gui/IProducerListener.h>
+//#include <gui/Surface.h>
+//#include <gui/SurfaceComposerClient.h>
+//
+//#include <gui/ISurfaceComposer.h>
+//
+//
+//#include <ui/DisplayInfo.h>
+//Crestron change ends
+
 GST_DEBUG_CATEGORY_STATIC (debug_category);
 #define GST_CAT_DEFAULT debug_category
 
@@ -509,6 +525,11 @@ gst_native_init (JNIEnv * env, jobject thiz)
   GST_DEBUG ("Created CustomData at %p", data);
   data->app = (*env)->NewGlobalRef (env, thiz);
   GST_DEBUG ("Created GlobalRef for app object at %p", data->app);
+
+  gst_debug_set_threshold_for_name ("GST_ELEMENT_FACTORY", GST_LEVEL_DEBUG);//Crestron change
+  gst_debug_set_threshold_for_name ("rtpjitterbuffer", GST_LEVEL_INFO);//Crestron change
+  gst_debug_set_threshold_for_name ("amcvideodec", GST_LEVEL_WARNING);//Crestron change
+
   pthread_create (&gst_app_thread, NULL, &app_function, data);
 }
 
@@ -741,15 +762,23 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
 
   java_vm = vm;
 
-  //Crestron change starts
-  setenv("GST_DEBUG","*:5",1);
+    __android_log_print (ANDROID_LOG_ERROR, "tutorial-5",
+                         "JNI_OnLoad in tutorial-5");
 
-  setenv("GST_AMC_IGNORE_UNKNOWN_COLOR_FORMATS", "yes", 1);
+  //Crestron change starts
+  //setenv("GST_DEBUG","*:5",1);
+  //setenv("GST_DEBUG","rtpjitterbuffer:5",1);
+  //setenv("GST_DEBUG","amc:5",1);
+  //setenv("GST_DEBUG","GST_ELEMENT_FACTORY:5",1);
+  //setenv("GST_AMC_IGNORE_UNKNOWN_COLOR_FORMATS", "yes", 1);
   /**
    * did not work,we are not using gst-launch-1.0 here.
    * setenv("GST_DEBUG_DUMP_DOT_DIR","/data/app/gst-graph",1);
    * */
   //Crestron change ends
+
+  __android_log_print (ANDROID_LOG_ERROR, "tutorial-5",
+                       "JNI_OnLoad in tutorial-5: GST_DEBUG set to [%s]",getenv("GST_DEBUG"));
 
   if ((*vm)->GetEnv (vm, (void **) &env, JNI_VERSION_1_4) != JNI_OK) {
     __android_log_print (ANDROID_LOG_ERROR, "tutorial-5",
