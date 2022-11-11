@@ -1,10 +1,18 @@
 package org.freedesktop.gstreamer.tutorials.tutorial_5;
 
 import android.content.Context;
+import android.content.res.Configuration;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceView;
 import android.view.View;
+import android.widget.Toast;
+
+//Crestron change starts
+import android.content.res.Resources;
+import android.content.res.Configuration;
+
+//Crestron change ends
 
 // A simple SurfaceView whose width and height can be set from the outside
 public class GStreamerSurfaceView extends SurfaceView {
@@ -36,7 +44,17 @@ public class GStreamerSurfaceView extends SurfaceView {
         int wsize = View.MeasureSpec.getSize(widthMeasureSpec);
         int hsize = View.MeasureSpec.getSize(heightMeasureSpec);
 
-        Log.i ("GStreamer", "onMeasure called with " + media_width + "x" + media_height);
+        //Crestron change starts
+        Configuration newConfig = getResources().getConfiguration();
+        if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            Log.i ("GStreamer", "onMeasure landscape");
+        } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT){
+            Log.i ("GStreamer", "onMeasure portrait");
+        }
+        //Crestron change ends
+
+
+        Log.i ("GStreamer", "onMeasure called with x: " + media_width + ", y: " + media_height);
         // Obey width rules
         switch (wmode) {
         case View.MeasureSpec.AT_MOST:
@@ -80,6 +98,7 @@ public class GStreamerSurfaceView extends SurfaceView {
         width = Math.max (getSuggestedMinimumWidth(), width);
         height = Math.max (getSuggestedMinimumHeight(), height);
         setMeasuredDimension(width, height);
+        Log.i ("GStreamer", "onMeasure called setMeasuredDimension width: " + width + ", height: " + height);
     }
 
 }
