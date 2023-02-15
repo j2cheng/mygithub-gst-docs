@@ -9,6 +9,8 @@
 #include <gst/video/videooverlay.h>
 #include <pthread.h>
 
+#include "csio/csio.h"
+
 //Crestron change starts
 // Android headers
 //#include "hardware/gralloc.h"           // for GRALLOC_USAGE_PROTECTED
@@ -59,6 +61,10 @@ typedef struct _CustomData
   gint64 desired_position;      /* Position to seek to, once the pipeline is running */
   GstClockTime last_seek_time;  /* For seeking overflow prevention (throttling) */
   gboolean is_live;             /* Live streams do not use buffering */
+  gchar* pipeline_string;       /* built pipeline by the string.
+                                 * eg.: videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink
+                                 *      videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink
+                                 *      rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa ! rtph264depay ! decodebin ! videoconvert ! autovideosink */
 } CustomData;
 
 /* playbin2 flags */
@@ -606,6 +612,9 @@ app_function (void *userdata)
 static void
 gst_native_init (JNIEnv * env, jobject thiz)
 {
+  __android_log_print (ANDROID_LOG_ERROR, "GStreamer",
+                       "gst_native_init in tutorial-5.c");
+
   CustomData *data = g_new0 (CustomData, 1);
   data->desired_position = GST_CLOCK_TIME_NONE;
   data->last_seek_time = GST_CLOCK_TIME_NONE;
@@ -651,7 +660,10 @@ gst_native_set_uri (JNIEnv * env, jobject thiz, jstring uri)
   if (!data || !data->pipeline)
     return;
   const gchar *char_uri = (*env)->GetStringUTFChars (env, uri, NULL);
-  GST_DEBUG ("Setting URI to %s", char_uri);
+  GST_DEBUG ("Setting URI to %s, target state: %s.", 
+              char_uri,
+              gst_element_state_get_name(data->target_state));
+              
   if (data->target_state >= GST_STATE_READY)
     gst_element_set_state (data->pipeline, GST_STATE_READY);
   g_object_set (data->pipeline, "uri", char_uri, NULL);
@@ -818,8 +830,9 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
 
   java_vm = vm;
 
-    __android_log_print (ANDROID_LOG_ERROR, "tutorial-5",
-                         "JNI_OnLoad in tutorial-5");
+  __android_log_print (ANDROID_LOG_ERROR, "GStreamer",
+                       "JNI_OnLoad in tutorial-5.c[%s]",getenv("GST_DEBUG"));
+  csio_init();
 
   //Crestron change starts
   //setenv("GST_DEBUG","*:5",1);
