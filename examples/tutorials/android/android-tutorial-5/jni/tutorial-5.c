@@ -278,6 +278,18 @@ duration_cb (GstBus * bus, GstMessage * msg, CustomData * data)
   data->duration = GST_CLOCK_TIME_NONE;
 }
 
+static void
+element_cb (GstBus * bus, GstMessage * msg, CustomData * data)
+{
+  if(GST_IS_ELEMENT(GST_MESSAGE_SRC(msg)))
+  {
+    GstObject *obj = GST_MESSAGE_SRC(msg);
+    g_strdup_printf ("element_cb from element %s",
+                     GST_OBJECT_NAME (msg->src));
+
+    GST_ERROR("element_cb from element %s",GST_OBJECT_NAME (msg->src));
+  }
+}
 /* Called when buffering messages are received. We inform the UI about the current buffering level and
  * keep the pipeline paused until 100% buffering is reached. At that point, set the desired state. */
 static void
@@ -344,6 +356,53 @@ check_media_size (CustomData * data)
   gst_object_unref (video_sink);
 }
 
+
+static void cres_add_graph (CustomData *data)
+{
+  //Crestron change starts
+  // CustomData *data = GET_CUSTOM_DATA (env, thiz, custom_data_field_id);
+  if (!data)
+    return;
+
+  GST_DEBUG ("cres_add_graph /data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/graph");
+
+  /**
+   *  set path GST_DEBUG_DUMP_DOT_DIR to /data/app/gst-graph
+   */
+  if(data->pipeline)
+  {
+    gchar *full_file_name = NULL;
+    FILE *out;
+    GstBin * bin = data->pipeline;
+
+    //Note: this app has its own space :  /data/data/org.freedesktop.gstreamer.tutorials.tutorial_5
+    //      and lib file is installed in: /data/app/org.freedesktop.gstreamer.tutorials.tutorial_5-2W78GrP_rHsTe_bHsPvJZg==
+    GstDebugGraphDetails details = GST_DEBUG_GRAPH_SHOW_ALL;
+    full_file_name = g_strdup_printf ("%s" G_DIR_SEPARATOR_S "%s.dot",
+            "/data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/graph", "pipeline");
+    if ((out = fopen (full_file_name, "wb")))
+    {
+      gchar *buf;
+
+      buf = gst_debug_bin_to_dot_data (bin, details);
+      fputs (buf, out);
+
+      g_free (buf);
+      fclose (out);
+
+      GST_INFO ("wrote bin graph to : '%s'", full_file_name);
+    }
+    else
+    {
+      GST_WARNING ("Failed to open file '%s' for writing: %s", full_file_name,
+                   g_strerror (errno));
+    }
+    g_free (full_file_name);
+  }
+  //Crestron change ends
+}
+
+
 /* Notify UI about pipeline state changes */
 static void
 state_changed_cb (GstBus * bus, GstMessage * msg, CustomData * data)
@@ -369,6 +428,12 @@ state_changed_cb (GstBus * bus, GstMessage * msg, CustomData * data)
       /* If there was a scheduled seek, perform it now that we have moved to the Paused state */
       if (GST_CLOCK_TIME_IS_VALID (data->desired_position))
         execute_seek (data->desired_position, data);
+    }
+
+    if(new_state == GST_STATE_PLAYING)
+    {
+      GST_DEBUG("new_state is in GST_STATE_PLAYING");
+      cres_add_graph(data);
     }
   }
 }
@@ -397,6 +462,20 @@ check_initialization_complete (CustomData * data)
   }
 }
 
+gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
+{
+  if(GST_IS_ELEMENT(GST_MESSAGE_SRC(msg)))
+  {
+    GstObject *obj = GST_MESSAGE_SRC(msg);
+    GST_DEBUG("%s: obj[%s]",__FUNCTION__,GST_OBJECT_NAME(obj));
+    GST_DEBUG("%s: g_type_name[%s]",__FUNCTION__, g_type_name(G_OBJECT_TYPE(obj)));
+    GST_DEBUG("%s: gst_plugin_feature_get_name %s",__FUNCTION__,
+             gst_plugin_feature_get_name(GST_ELEMENT_GET_CLASS(obj)->elementfactory) );
+  }
+
+  GST_DEBUG("%s: GST_MESSAGE_TYPE name[%s]",__FUNCTION__,GST_MESSAGE_TYPE_NAME(msg));
+
+}
 /* Main method for the native code. This is executed on its own thread. */
 static void *
 app_function (void *userdata)
@@ -408,10 +487,12 @@ app_function (void *userdata)
   GSource *bus_source;
   GError *error = NULL;
   guint flags;
+  guint m_bus_id; //Crestron change
 
   GST_DEBUG ("Creating pipeline in CustomData at %p", data);
 
   //Crestron change starts
+  if(0)
   {
         GstRegistry *registry = NULL;
         GstElementFactory *factory = NULL;
@@ -478,9 +559,17 @@ app_function (void *userdata)
       (GCallback) duration_cb, data);
   g_signal_connect (G_OBJECT (bus), "message::buffering",
       (GCallback) buffering_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::element",
+      (GCallback) element_cb, data);
   g_signal_connect (G_OBJECT (bus), "message::clock-lost",
       (GCallback) clock_lost_cb, data);
-  gst_object_unref (bus);
+  
+//  bus already got an event source
+//  m_bus_id = gst_bus_add_watch( G_OBJECT (bus), (GstBusFunc) csio_GstMsgHandler, data );//Crestron change
+//  GST_DEBUG ("app_function m_bus_id: %d", m_bus_id);
+
+
+    gst_object_unref (bus);
 
   /* Register a function that GLib will call 4 times per second */
   timeout_source = g_timeout_source_new (250);
@@ -494,6 +583,8 @@ app_function (void *userdata)
   check_initialization_complete (data);
   g_main_loop_run (data->main_loop);
   GST_DEBUG ("Exited main loop");
+//  g_source_remove( m_bus_id );//Crestron change
+
   g_main_loop_unref (data->main_loop);
   data->main_loop = NULL;
 
@@ -598,42 +689,7 @@ gst_native_pause (JNIEnv * env, jobject thiz)
       (gst_element_set_state (data->pipeline,
           GST_STATE_PAUSED) == GST_STATE_CHANGE_NO_PREROLL);
 
-
-  //Crestron change starts
-  /**
-   *  set path GST_DEBUG_DUMP_DOT_DIR to /data/app/gst-graph
-   */
-  if(data->pipeline)
-  {
-    gchar *full_file_name = NULL;
-    FILE *out;
-    GstBin * bin = data->pipeline;
-
-    //Note: this app has its own space :  /data/data/org.freedesktop.gstreamer.tutorials.tutorial_5
-    //      and lib file is installed in: /data/app/org.freedesktop.gstreamer.tutorials.tutorial_5-2W78GrP_rHsTe_bHsPvJZg==
-    GstDebugGraphDetails details = GST_DEBUG_GRAPH_SHOW_ALL;
-    full_file_name = g_strdup_printf ("%s" G_DIR_SEPARATOR_S "%s.dot",
-                                      "/data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/graph", "pipeline");
-    if ((out = fopen (full_file_name, "wb")))
-    {
-      gchar *buf;
-
-      buf = gst_debug_bin_to_dot_data (bin, details);
-      fputs (buf, out);
-
-      g_free (buf);
-      fclose (out);
-
-      GST_INFO ("wrote bin graph to : '%s'", full_file_name);
-    }
-    else
-    {
-      GST_WARNING ("Failed to open file '%s' for writing: %s", full_file_name,
-                   g_strerror (errno));
-    }
-    g_free (full_file_name);
-  }
-  //Crestron change ends
+  cres_add_graph(data);//Crestron change
 }
 
 /* Instruct the pipeline to seek to a different position */
@@ -769,7 +825,7 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
   //setenv("GST_DEBUG","*:5",1);
   //setenv("GST_DEBUG","rtpjitterbuffer:5",1);
   //setenv("GST_DEBUG","amc:5",1);
-  //setenv("GST_DEBUG","GST_ELEMENT_FACTORY:5",1);
+  setenv("GST_DEBUG","GST_ELEMENT_FACTORY:5",1);
   //setenv("GST_AMC_IGNORE_UNKNOWN_COLOR_FORMATS", "yes", 1);
   /**
    * did not work,we are not using gst-launch-1.0 here.
