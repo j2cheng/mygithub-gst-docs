@@ -482,6 +482,36 @@ gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
   GST_DEBUG("%s: GST_MESSAGE_TYPE name[%s]",__FUNCTION__,GST_MESSAGE_TYPE_NAME(msg));
 
 }
+/* Functions below print the Capabilities in a human-friendly format */
+static gboolean print_field (GQuark field, const GValue * value, gpointer pfx) {
+    gchar *str = gst_value_serialize (value);
+
+    g_print ("%s  %15s: %s\n", (gchar *) pfx, g_quark_to_string (field), str);
+    g_free (str);
+    return TRUE;
+}
+static void print_caps (const GstCaps * caps, const gchar * pfx) {
+    guint i;
+
+    g_return_if_fail (caps != NULL);
+
+    if (gst_caps_is_any (caps)) {
+        g_print ("%sANY\n", pfx);
+        return;
+    }
+    if (gst_caps_is_empty (caps)) {
+        g_print ("%sEMPTY\n", pfx);
+        return;
+    }
+
+    for (i = 0; i < gst_caps_get_size (caps); i++) {
+        GstStructure *structure = gst_caps_get_structure (caps, i);
+
+        g_print ("%s%s\n", pfx, gst_structure_get_name (structure));
+        gst_structure_foreach (structure, print_field, (gpointer) pfx);
+    }
+}
+
 /* Main method for the native code. This is executed on its own thread. */
 static void *
 app_function (void *userdata)
@@ -498,6 +528,60 @@ app_function (void *userdata)
   GST_DEBUG ("Creating pipeline in CustomData at %p", data);
 
   //Crestron change starts
+  if(1)
+  {
+    GstRegistry *registry = NULL;
+    GstElementFactory *factory = NULL;
+
+    factory = gst_element_factory_find ("amcviddec-omxqcomvideodecoderavc");
+    GST_DEBUG ("Creating GST_ELEMENT_FACTORY amcviddec-omxqcomvideodecoderavc: %p", factory);
+
+      GST_DEBUG ("Pad Templates for %s:\n", gst_element_factory_get_longname (factory));
+    if (!gst_element_factory_get_num_pad_templates (factory)) {
+      GST_DEBUG ("get_num_pad returns  none\n");
+    }
+    else
+    {
+      const GList *pads = gst_element_factory_get_static_pad_templates (factory);
+      GstStaticPadTemplate *padtemplate;
+
+        while (pads) {
+            padtemplate = pads->data;
+            pads = g_list_next (pads);
+
+            if (padtemplate->direction == GST_PAD_SRC)
+                GST_DEBUG ("  SRC template: '%s'\n", padtemplate->name_template);
+            else if (padtemplate->direction == GST_PAD_SINK)
+                GST_DEBUG ("  SINK template: '%s'\n", padtemplate->name_template);
+            else
+                GST_DEBUG ("  UNKNOWN!!! template: '%s'\n", padtemplate->name_template);
+
+            if (padtemplate->presence == GST_PAD_ALWAYS)
+                GST_DEBUG ("    Availability: Always\n");
+            else if (padtemplate->presence == GST_PAD_SOMETIMES)
+                GST_DEBUG ("    Availability: Sometimes\n");
+            else if (padtemplate->presence == GST_PAD_REQUEST)
+                GST_DEBUG ("    Availability: On request\n");
+            else
+                GST_DEBUG ("    Availability: UNKNOWN!!!\n");
+
+            if (padtemplate->static_caps.string) {
+                GstCaps *caps;
+                GST_DEBUG ("    Capabilities:\n");
+                caps = gst_static_caps_get (&padtemplate->static_caps);
+                print_caps (caps, "      ");
+                gst_caps_unref (caps);
+
+            }
+
+            GST_DEBUG ("\n");
+        }
+
+
+    }
+  }
+
+
   if(0)
   {
         GstRegistry *registry = NULL;
