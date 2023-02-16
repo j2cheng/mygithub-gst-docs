@@ -12,6 +12,11 @@
 //#define STRLOG(level, category,  )         __android_log_print (ANDROID_LOG_ERROR, "csioComm",
 //#define GST_ERROR_OBJECT(obj,...)	GST_CAT_LEVEL_LOG (GST_CAT_DEFAULT, GST_LEVEL_ERROR,   obj,  __VA_ARGS__)
 
+typedef struct
+{
+    const char * pStr;
+    unsigned int num;
+} WFD_STRNUMPAIR;
 
 #define CSIO_DEFAULT_QUEUE_SIZE 1000
 #define MAX_DEBUG_ARRAY_SIZE 100
@@ -32,6 +37,7 @@ typedef enum
     // Do not add anything after the Last state
     eLogLevel_LAST
 }eLogLevel;
+#define CSIO_DEFAULT_LOG_LEVEL eLogLevel_debug
 
 typedef struct _CSIO_EVNT_QUEUE_STRUCT
 {

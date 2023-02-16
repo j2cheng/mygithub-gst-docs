@@ -5,7 +5,8 @@ include $(CLEAR_VARS)
 LOCAL_MODULE    := tutorial-5
 LOCAL_SRC_FILES := tutorial-5.c dummy.cpp
 LOCAL_SRC_FILES += csio/csio.cpp \
-                   csio/csioCommBase.cpp
+                   csio/csioCommBase.cpp \
+#                   csio/crestDBIntf.cpp
 
 LOCAL_SHARED_LIBRARIES := gstreamer_android
 LOCAL_LDLIBS := -llog -landroid
