@@ -19,7 +19,28 @@ GST_DEBUG_CATEGORY_STATIC (debug_category);
 #define GST_CAT_CSIO "csio"
 
 csioProjectClass** csioProjList = NULL ;
+std::string GetStdoutFromCommand(std::string cmd) 
+{
+    std::string data;
+    FILE * stream;
+    const int max_buffer = 256;
+    char buffer[max_buffer];
 
+    /** 0 is stdin
+        1 is stdout
+        2 is stderr
+        2>&1 : redirect merger operator, redirect stderr to stdout.
+    */
+    cmd.append(" 2>&1");//not really needed here
+
+    stream = popen(cmd.c_str(), "r");
+    if (stream) {
+        while (!feof(stream))
+            if (fgets(buffer, max_buffer, stream) != NULL) data.append(buffer);
+        pclose(stream);
+    }
+    return data;
+}
 int csio_init()
 {
     GST_DEBUG("%s: enter",__FUNCTION__);
@@ -30,11 +51,42 @@ int csio_init()
                              "Android csio");
     gst_debug_set_threshold_for_name (GST_CAT_CSIO, GST_LEVEL_DEBUG);
 
+//testing testing testing
+{
+    char buff[300];
+    sprintf(buff, "(echo info; sleep 1) | nc %s %d", "127.0.0.1", 6379);
+    int retv = system(buff);
+    GST_DEBUG("%s: sent command '%s' to Redis, retv = %d", __FUNCTION__,buff,retv);
+
+    retv = system("ls -l &gt; /data/app/test.txt");
+//    std::cout << std::ifstream("/data/app/test.txt").rdbuf();
+
+    __android_log_print (ANDROID_LOG_ERROR, "csio","%s sent command '%s' to Redis, retv = %d.",__FUNCTION__,buff,retv);
+
+        std::string ls = GetStdoutFromCommand("ls -la; sleep 1");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand ls -al[%d] '%s'.",
+                             __FUNCTION__,ls.size(),ls.c_str());
+
+        std::string info = GetStdoutFromCommand("(echo info; sleep 1) | nc 127.0.0.1 6379");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand info[%d] '%s'.",__FUNCTION__,info.size(),info.c_str());
+
+        info = GetStdoutFromCommand("(echo keys *; sleep 0.1) | nc 127.0.0.1 6379");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand [%d]keys *: '%s'.",__FUNCTION__,info.size(),info.c_str());
+
+        info = GetStdoutFromCommand("(echo get key1; sleep 0.1) | nc 127.0.0.1 6379");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand get[%d] key1 '%s'.",__FUNCTION__,info.size(),info.c_str());
+        const char* tmp = info.c_str();
+        for(int i = 0; i < info.size(); i++)
+            __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand get key1 '0x%x'.",__FUNCTION__,tmp[i]);
+
+        info = GetStdoutFromCommand("(echo get key_nothing; sleep 0.1) | nc 127.0.0.1 6379");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand get[%d] key_nothing '%s'.",__FUNCTION__,info.size(),info.c_str());
+        tmp = info.c_str();
+        for(int i = 0; i < info.size(); i++)
+            __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand get key_nothing '0x%x'.",__FUNCTION__,tmp[i]);
+
+}
     gProjectsLock.lock();
-//    char buff[300];
-//    sprintf(buff, "echo save | /system/bin/busybox nc %s %d", "127.0.0.1", 6379); // NVX's nc does not take options
-//    int retv = system(buff);
-//    GST_DEBUG("%s: sent command '%s' to Redis, retv = %d", __FUNCTION__,buff,retv);
 
     if(csioProjList == NULL)
     {

@@ -945,5 +945,8 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
 
   pthread_key_create (&current_jni_env, detach_current_thread);
 
+    __android_log_print (ANDROID_LOG_ERROR, "GStreamer",
+                         "JNI_OnLoad returned in tutorial-5.c[%s]",getenv("GST_DEBUG"));
+
   return JNI_VERSION_1_4;
 }

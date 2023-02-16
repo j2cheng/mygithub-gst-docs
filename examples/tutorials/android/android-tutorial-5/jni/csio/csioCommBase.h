@@ -1,6 +1,7 @@
 #ifndef CSIO_COMMON_BASE_H_
 #define CSIO_COMMON_BASE_H_
 
+#include <string>
 #include <list>
 #include <fcntl.h>
 #include <poll.h>

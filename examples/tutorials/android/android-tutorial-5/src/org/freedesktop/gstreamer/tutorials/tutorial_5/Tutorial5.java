@@ -168,8 +168,12 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
         // Start with disabled buttons, until native code is initialized
 //        this.findViewById(R.id.button_play).setEnabled(false);
 //        this.findViewById(R.id.button_stop).setEnabled(false);
+        Log.i ("GStreamer", "Calling nativeInit in OnCreate");
 
         nativeInit();
+
+        Log.i ("GStreamer", "nativeInit returned");
+
 
         //Crestron change starts
 //        int count = MediaCodecList.getCodecCount();
