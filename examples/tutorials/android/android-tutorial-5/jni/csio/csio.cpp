@@ -13,6 +13,11 @@ const WFD_STRNUMPAIR csio_proj_timestamp_names[] =
     {0,0}//terminate the list
 };
 static Mutex gProjectsLock;
+
+GST_DEBUG_CATEGORY_STATIC (debug_category);
+#define GST_CAT_DEFAULT debug_category
+#define GST_CAT_CSIO "csio"
+
 csioProjectClass** csioProjList = NULL ;
 
 int csio_init()
@@ -20,6 +25,11 @@ int csio_init()
     GST_DEBUG("%s: enter",__FUNCTION__);
     __android_log_print (ANDROID_LOG_ERROR, "csio",
                          "%s enter.",__FUNCTION__);
+
+    GST_DEBUG_CATEGORY_INIT (debug_category, GST_CAT_CSIO, 0,
+                             "Android csio");
+    gst_debug_set_threshold_for_name (GST_CAT_CSIO, GST_LEVEL_DEBUG);
+
     gProjectsLock.lock();
 //    char buff[300];
 //    sprintf(buff, "echo save | /system/bin/busybox nc %s %d", "127.0.0.1", 6379); // NVX's nc does not take options
@@ -53,6 +63,8 @@ int csio_init()
     __android_log_print (ANDROID_LOG_ERROR, "csio",
                          "%s exit.",__FUNCTION__);
     GST_DEBUG("%s: exit",__FUNCTION__);
+
+    return 0;
 }
 
 /********** csioProjectClass class *******************/
