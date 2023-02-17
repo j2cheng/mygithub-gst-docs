@@ -29,7 +29,7 @@
 
 GST_DEBUG_CATEGORY_STATIC (debug_category);
 #define GST_CAT_DEFAULT debug_category
-//#define USE_PLAYBIN 1
+// #define USE_PLAYBIN 1
 
 /*
  * These macros provide a way to store the native pointer to CustomData, which might be 32 or 64 bits, into
@@ -814,16 +814,20 @@ app_function (void *userdata)
   guint flags;
   guint m_bus_id; //Crestron change
 
-  GST_DEBUG ("Creating pipeline in CustomData at %p", data);  
+  GST_DEBUG ("Creating pipeline by hand. data: %p", data);  
 
   /* Create our own GLib Main Context and make it the default one */
   data->context = g_main_context_new ();
   g_main_context_push_thread_default (data->context);
 
   /* Build pipeline */
-  // data->pipeline = gst_parse_launch ("playbin", &error);
+  // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
+  // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink", &error);
+  // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
+  //                                    " rtph264depay ! decodebin ! videoconvert ! autovideosink", &error);
+  data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
+                                     " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
 
-  data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
   if (error) {
     gchar *message =
         g_strdup_printf ("Unable to build pipeline: %s", error->message);
