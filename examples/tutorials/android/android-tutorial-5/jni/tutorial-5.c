@@ -29,6 +29,7 @@
 
 GST_DEBUG_CATEGORY_STATIC (debug_category);
 #define GST_CAT_DEFAULT debug_category
+//#define USE_PLAYBIN 1
 
 /*
  * These macros provide a way to store the native pointer to CustomData, which might be 32 or 64 bits, into
@@ -65,6 +66,7 @@ typedef struct _CustomData
                                  * eg.: videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink
                                  *      videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink
                                  *      rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa ! rtph264depay ! decodebin ! videoconvert ! autovideosink */
+  GstElement *video_sink;       /* The video sink from the pipeline */                                 
 } CustomData;
 
 /* playbin2 flags */
@@ -287,13 +289,44 @@ duration_cb (GstBus * bus, GstMessage * msg, CustomData * data)
 static void
 element_cb (GstBus * bus, GstMessage * msg, CustomData * data)
 {
+  GST_ERROR("element_cb from element., tartget state[%s]",gst_element_state_get_name(data->target_state));
+
   if(GST_IS_ELEMENT(GST_MESSAGE_SRC(msg)))
   {
     GstObject *obj = GST_MESSAGE_SRC(msg);
-    g_strdup_printf ("element_cb from element %s",
-                     GST_OBJECT_NAME (msg->src));
+    // g_strdup_printf ("element_cb from element %s",
+    //                  GST_OBJECT_NAME (msg->src));
 
-    GST_ERROR("element_cb from element %s",GST_OBJECT_NAME (msg->src));
+    GST_ERROR("%s: obj[%s]",__FUNCTION__,GST_OBJECT_NAME(obj));
+    GST_ERROR("%s: g_type_name[%s]",__FUNCTION__, g_type_name(G_OBJECT_TYPE(obj)));
+    GST_ERROR("%s: gst_plugin_feature_get_name %s",__FUNCTION__,
+              gst_plugin_feature_get_name(GST_ELEMENT_GET_CLASS(obj)->elementfactory) );                     
+
+    GST_ERROR("element_cb from element %s,videsink[0x%x]",GST_OBJECT_NAME (msg->src),data->video_sink);
+
+
+
+    data->video_sink = gst_bin_get_by_interface(GST_BIN(data->pipeline), GST_TYPE_VIDEO_OVERLAY);
+
+    if(data->video_sink)
+    {
+      GST_DEBUG ("looking for video sink: 0x%x",data->video_sink);
+
+#if USE_PLAYBIN
+      GST_DEBUG ("skipp overlay_set_window");
+#else
+      GST_DEBUG ("calling overlay_set_window");
+      gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY(data->video_sink), (guintptr)data->native_window);
+#endif
+      GST_DEBUG ("video_overlay_set_window to video sink: 0x%x",data->video_sink);
+    }
+    else
+    {
+      GST_DEBUG ("failed to get video sink!!!");
+    }
+
+
+
   }
 }
 /* Called when buffering messages are received. We inform the UI about the current buffering level and
@@ -303,10 +336,14 @@ buffering_cb (GstBus * bus, GstMessage * msg, CustomData * data)
 {
   gint percent;
 
+  GST_ERROR("buffering_cb data->is_live %d, tartget state[%s]",data->is_live,gst_element_state_get_name(data->target_state));
+
   if (data->is_live)
     return;
 
   gst_message_parse_buffering (msg, &percent);
+  GST_ERROR("buffering_cb percent %d",percent);
+
   if (percent < 100 && data->target_state >= GST_STATE_PAUSED) {
     gchar *message_string = g_strdup_printf ("Buffering %d%%", percent);
     gst_element_set_state (data->pipeline, GST_STATE_PAUSED);
@@ -339,7 +376,11 @@ check_media_size (CustomData * data)
   GstCaps *caps;
   GstVideoInfo info;
 
+  GST_DEBUG ("check_media_size enter");
+
+#if USE_PLAYBIN
   /* Retrieve the Caps at the entrance of the video sink */
+  GST_DEBUG ("Retrieve the video sink from playbin");
   g_object_get (data->pipeline, "video-sink", &video_sink, NULL);
   video_sink_pad = gst_element_get_static_pad (video_sink, "sink");
   caps = gst_pad_get_current_caps (video_sink_pad);
@@ -360,6 +401,36 @@ check_media_size (CustomData * data)
   gst_caps_unref (caps);
   gst_object_unref (video_sink_pad);
   gst_object_unref (video_sink);
+#else
+  /* Retrieve the Caps at the entrance of the video sink */
+  // g_object_get (data->pipeline, "video-sink", &video_sink, NULL);
+  video_sink = data->video_sink;
+
+  GST_DEBUG ("Should have video_sink[0x%x]",video_sink);
+
+  video_sink_pad = gst_element_get_static_pad (video_sink, "sink");
+  caps = gst_pad_get_current_caps (video_sink_pad);
+
+  if (gst_video_info_from_caps (&info, caps)) {
+    info.width = info.width * info.par_n / info.par_d;
+    GST_DEBUG ("Media size is %dx%d, notifying application", info.width,
+        info.height);
+
+    (*env)->CallVoidMethod (env, data->app, on_media_size_changed_method_id,
+        (jint) info.width, (jint) info.height);
+    if ((*env)->ExceptionCheck (env)) {
+      GST_ERROR ("Failed to call Java method");
+      (*env)->ExceptionClear (env);
+    }
+  }
+
+  gst_caps_unref (caps);
+  gst_object_unref (video_sink_pad);
+  gst_object_unref (video_sink);
+
+#endif
+GST_DEBUG ("check_media_size exit");
+
 }
 
 
@@ -455,9 +526,12 @@ check_initialization_complete (CustomData * data)
         ("Initialization complete, notifying application. native_window:%p main_loop:%p",
         data->native_window, data->main_loop);
 
+#if USE_PLAYBIN
+    GST_DEBUG("calling video_overlay_set_window here.");
     /* The main loop is running and we received a native window, inform the sink about it */
     gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (data->pipeline),
         (guintptr) data->native_window);
+#endif
 
     (*env)->CallVoidMethod (env, data->app, on_gstreamer_initialized_method_id);
     if ((*env)->ExceptionCheck (env)) {
@@ -513,7 +587,7 @@ static void print_caps (const GstCaps * caps, const gchar * pfx) {
 }
 
 /* Main method for the native code. This is executed on its own thread. */
-#if 1
+#if USE_PLAYBIN
 static void *
 app_function (void *userdata)
 {
@@ -1017,8 +1091,19 @@ gst_native_surface_finalize (JNIEnv * env, jobject thiz)
   GST_DEBUG ("Releasing Native Window %p", data->native_window);
 
   if (data->pipeline) {
+#if USE_PLAYBIN
+    GST_DEBUG("calling video_overlay_set_window NULL here.");
     gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (data->pipeline),
         (guintptr) NULL);
+#else
+    if (data->video_sink)
+    {  
+        GST_DEBUG("calling video_overlay_set_window directly to video sink to NULL.");
+        gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (data->video_sink),
+          (guintptr) NULL);
+    }
+#endif
+
     gst_element_set_state (data->pipeline, GST_STATE_READY);
   }
 
