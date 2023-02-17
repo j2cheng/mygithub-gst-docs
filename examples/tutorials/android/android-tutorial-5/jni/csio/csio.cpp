@@ -19,12 +19,19 @@ GST_DEBUG_CATEGORY_STATIC (debug_category);
 #define GST_CAT_CSIO "csio"
 
 csioProjectClass** csioProjList = NULL ;
-std::string GetStdoutFromCommand(std::string cmd) 
+/**
+ * \detail: function that invoking the shell and return stdoutput.
+ *          cmd example: (echo keys *; sleep 0.1) | nc 127.0.0.1 6379
+ *          Make sure add sleep here, or 'nc' will get closed too soon! 
+ *          Notice MAX_STR_LEN us used here!
+ * @param cmd
+ * @return string from stdoutput
+ */
+static std::string GetFromRedis(std::string cmd)
 {
     std::string data;
     FILE * stream;
-    const int max_buffer = 256;
-    char buffer[max_buffer];
+    char buffer[MAX_STR_LEN];
 
     /** 0 is stdin
         1 is stdout
@@ -33,11 +40,17 @@ std::string GetStdoutFromCommand(std::string cmd)
     */
     cmd.append(" 2>&1");//not really needed here
 
+    //using popen for read-only
     stream = popen(cmd.c_str(), "r");
     if (stream) {
         while (!feof(stream))
-            if (fgets(buffer, max_buffer, stream) != NULL) data.append(buffer);
+            if (fgets(buffer, MAX_STR_LEN, stream) != NULL) data.append(buffer);
         pclose(stream);
+    }
+    else
+    {
+        __android_log_print (ANDROID_LOG_ERROR, "csio",
+                             "%s popen failed with command[%s].",__FUNCTION__,cmd.c_str());
     }
     return data;
 }
@@ -63,27 +76,27 @@ int csio_init()
 
     __android_log_print (ANDROID_LOG_ERROR, "csio","%s sent command '%s' to Redis, retv = %d.",__FUNCTION__,buff,retv);
 
-        std::string ls = GetStdoutFromCommand("ls -la; sleep 1");
-        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand ls -al[%d] '%s'.",
+        std::string ls = GetFromRedis("ls -la; sleep 1");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetFromRedis ls -al[%d] '%s'.",
                              __FUNCTION__,ls.size(),ls.c_str());
 
-        std::string info = GetStdoutFromCommand("(echo info; sleep 1) | nc 127.0.0.1 6379");
-        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand info[%d] '%s'.",__FUNCTION__,info.size(),info.c_str());
+        std::string info = GetFromRedis("(echo info; sleep 1) | nc 127.0.0.1 6379");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetFromRedis info[%d] '%s'.",__FUNCTION__,info.size(),info.c_str());
 
-        info = GetStdoutFromCommand("(echo keys *; sleep 0.1) | nc 127.0.0.1 6379");
-        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand [%d]keys *: '%s'.",__FUNCTION__,info.size(),info.c_str());
+        info = GetFromRedis("(echo keys *; sleep 0.1) | nc 127.0.0.1 6379");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetFromRedis [%d]keys *: '%s'.",__FUNCTION__,info.size(),info.c_str());
 
-        info = GetStdoutFromCommand("(echo get key1; sleep 0.1) | nc 127.0.0.1 6379");
-        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand get[%d] key1 '%s'.",__FUNCTION__,info.size(),info.c_str());
+        info = GetFromRedis("(echo get key1; sleep 0.1) | nc 127.0.0.1 6379");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetFromRedis get[%d] key1 '%s'.",__FUNCTION__,info.size(),info.c_str());
         const char* tmp = info.c_str();
         for(int i = 0; i < info.size(); i++)
-            __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand get key1 '0x%x'.",__FUNCTION__,tmp[i]);
+            __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetFromRedis get key1 '0x%x'.",__FUNCTION__,tmp[i]);
 
-        info = GetStdoutFromCommand("(echo get key_nothing; sleep 0.1) | nc 127.0.0.1 6379");
-        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand get[%d] key_nothing '%s'.",__FUNCTION__,info.size(),info.c_str());
+        info = GetFromRedis("(echo get key_nothing; sleep 0.1) | nc 127.0.0.1 6379");
+        __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetFromRedis get[%d] key_nothing '%s'.",__FUNCTION__,info.size(),info.c_str());
         tmp = info.c_str();
         for(int i = 0; i < info.size(); i++)
-            __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetStdoutFromCommand get key_nothing '0x%x'.",__FUNCTION__,tmp[i]);
+            __android_log_print (ANDROID_LOG_ERROR, "csio","%s GetFromRedis get key_nothing '0x%x'.",__FUNCTION__,tmp[i]);
 
 }
     gProjectsLock.lock();

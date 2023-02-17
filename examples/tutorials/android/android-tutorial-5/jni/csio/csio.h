@@ -1,6 +1,7 @@
 //
 // Created by builduser on 2/15/23.
 //
+#include "gst_element_print_properties.h"
 
 #ifndef ANDROID_CSIO_H
 #define ANDROID_CSIO_H

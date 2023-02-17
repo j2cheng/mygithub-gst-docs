@@ -513,6 +513,7 @@ static void print_caps (const GstCaps * caps, const gchar * pfx) {
 }
 
 /* Main method for the native code. This is executed on its own thread. */
+#if 1
 static void *
 app_function (void *userdata)
 {
@@ -615,6 +616,45 @@ app_function (void *userdata)
 
   /* Build pipeline */
   data->pipeline = gst_parse_launch ("playbin", &error);
+
+  {
+    GST_DEBUG ("try to print  playbin: %p", data->pipeline);
+    gst_element_print_properties(data->pipeline);
+
+    GST_DEBUG ("try to create pipeline  videotestsrc ! ....");
+    GstElement* pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
+    if(GST_IS_ELEMENT (pipeline))
+    {
+      GST_DEBUG ("Created element: %p", pipeline);
+      gst_element_print_properties(pipeline);
+
+      if(GST_IS_PIPELINE(pipeline))
+      {
+        GST_DEBUG ("This element is pipeline");
+
+        GstElement* video_sink = gst_bin_get_by_interface(GST_BIN(pipeline), GST_TYPE_VIDEO_OVERLAY);
+
+        if(video_sink)
+        {
+          GST_DEBUG ("looking for video sink: 0x%x",video_sink);
+          gst_element_print_properties(video_sink);
+        }
+        else
+        {
+          GST_DEBUG ("failed to get video sink!!!");
+        }
+      }
+      else
+      {
+        GST_DEBUG ("Failed to create pipeline!!!");
+      }
+    }
+    else
+    {
+      GST_DEBUG ("Failed to create element!!!");
+    }
+  }
+
   if (error) {
     gchar *message =
         g_strdup_printf ("Unable to build pipeline: %s", error->message);
@@ -687,7 +727,102 @@ app_function (void *userdata)
 
   return NULL;
 }
+#else
+static void *
+app_function (void *userdata)
+{
+  JavaVMAttachArgs args;
+  GstBus *bus;
+  CustomData *data = (CustomData *) userdata;
+  GSource *timeout_source;
+  GSource *bus_source;
+  GError *error = NULL;
+  guint flags;
+  guint m_bus_id; //Crestron change
 
+  GST_DEBUG ("Creating pipeline in CustomData at %p", data);  
+
+  /* Create our own GLib Main Context and make it the default one */
+  data->context = g_main_context_new ();
+  g_main_context_push_thread_default (data->context);
+
+  /* Build pipeline */
+  // data->pipeline = gst_parse_launch ("playbin", &error);
+
+  data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
+  if (error) {
+    gchar *message =
+        g_strdup_printf ("Unable to build pipeline: %s", error->message);
+    g_clear_error (&error);
+    set_ui_message (message, data);
+    g_free (message);
+    return NULL;
+  }
+
+  /* Disable subtitles */
+  // g_object_get (data->pipeline, "flags", &flags, NULL);
+  // flags &= ~GST_PLAY_FLAG_TEXT;
+  // g_object_set (data->pipeline, "flags", flags, NULL);
+
+  /* Set the pipeline to READY, so it can already accept a window handle, if we have one */
+  data->target_state = GST_STATE_READY;
+  gst_element_set_state (data->pipeline, GST_STATE_READY);
+
+  /* Instruct the bus to emit signals for each received message, and connect to the interesting signals */
+  bus = gst_element_get_bus (data->pipeline);
+  bus_source = gst_bus_create_watch (bus);
+  g_source_set_callback (bus_source, (GSourceFunc) gst_bus_async_signal_func,
+      NULL, NULL);
+  g_source_attach (bus_source, data->context);
+  g_source_unref (bus_source);
+  g_signal_connect (G_OBJECT (bus), "message::error", (GCallback) error_cb,
+      data);
+  g_signal_connect (G_OBJECT (bus), "message::eos", (GCallback) eos_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::state-changed",
+      (GCallback) state_changed_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::duration",
+      (GCallback) duration_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::buffering",
+      (GCallback) buffering_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::element",
+      (GCallback) element_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::clock-lost",
+      (GCallback) clock_lost_cb, data);
+  
+//  bus already got an event source
+//  m_bus_id = gst_bus_add_watch( G_OBJECT (bus), (GstBusFunc) csio_GstMsgHandler, data );//Crestron change
+//  GST_DEBUG ("app_function m_bus_id: %d", m_bus_id);
+
+
+  gst_object_unref (bus);
+
+  /* Register a function that GLib will call 4 times per second */
+  timeout_source = g_timeout_source_new (250);
+  g_source_set_callback (timeout_source, (GSourceFunc) refresh_ui, data, NULL);
+  g_source_attach (timeout_source, data->context);
+  g_source_unref (timeout_source);
+
+  /* Create a GLib Main Loop and set it to run */
+  GST_DEBUG ("Entering main loop... (CustomData:%p)", data);
+  data->main_loop = g_main_loop_new (data->context, FALSE);
+  check_initialization_complete (data);
+  g_main_loop_run (data->main_loop);
+  GST_DEBUG ("Exited main loop");
+//  g_source_remove( m_bus_id );//Crestron change
+
+  g_main_loop_unref (data->main_loop);
+  data->main_loop = NULL;
+
+  /* Free resources */
+  g_main_context_pop_thread_default (data->context);
+  g_main_context_unref (data->context);
+  data->target_state = GST_STATE_NULL;
+  gst_element_set_state (data->pipeline, GST_STATE_NULL);
+  gst_object_unref (data->pipeline);
+
+  return NULL;
+}
+#endif
 /*
  * Java Bindings
  */

@@ -23,6 +23,7 @@ typedef struct
 #define MAX_DEBUG_ARRAY_SIZE 100
 #define MAX_THREAD_NAME_SIZE 16
 #define MILLION 1000000LL     //make sure it is defined 64bit long
+#define MAX_STR_LEN    256
 
 #define ABOVE_DEBUG_VERB(a)    (a+1)
 #define ABOVE_DEBUG_XTRVERB(a) (a+2)
