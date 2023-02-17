@@ -9,6 +9,8 @@
 #include <gst/video/videooverlay.h>
 #include <pthread.h>
 
+#include "csio/csio.h"
+
 //Crestron change starts
 // Android headers
 //#include "hardware/gralloc.h"           // for GRALLOC_USAGE_PROTECTED
@@ -27,6 +29,7 @@
 
 GST_DEBUG_CATEGORY_STATIC (debug_category);
 #define GST_CAT_DEFAULT debug_category
+// #define USE_PLAYBIN 1
 
 /*
  * These macros provide a way to store the native pointer to CustomData, which might be 32 or 64 bits, into
@@ -59,6 +62,11 @@ typedef struct _CustomData
   gint64 desired_position;      /* Position to seek to, once the pipeline is running */
   GstClockTime last_seek_time;  /* For seeking overflow prevention (throttling) */
   gboolean is_live;             /* Live streams do not use buffering */
+  gchar* pipeline_string;       /* built pipeline by the string.
+                                 * eg.: videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink
+                                 *      videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink
+                                 *      rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa ! rtph264depay ! decodebin ! videoconvert ! autovideosink */
+  GstElement *video_sink;       /* The video sink from the pipeline */                                 
 } CustomData;
 
 /* playbin2 flags */
@@ -278,6 +286,49 @@ duration_cb (GstBus * bus, GstMessage * msg, CustomData * data)
   data->duration = GST_CLOCK_TIME_NONE;
 }
 
+static void
+element_cb (GstBus * bus, GstMessage * msg, CustomData * data)
+{
+  GST_ERROR("element_cb from element., tartget state[%s]",gst_element_state_get_name(data->target_state));
+
+  if(GST_IS_ELEMENT(GST_MESSAGE_SRC(msg)))
+  {
+    GstObject *obj = GST_MESSAGE_SRC(msg);
+    // g_strdup_printf ("element_cb from element %s",
+    //                  GST_OBJECT_NAME (msg->src));
+
+    GST_ERROR("%s: obj[%s]",__FUNCTION__,GST_OBJECT_NAME(obj));
+    GST_ERROR("%s: g_type_name[%s]",__FUNCTION__, g_type_name(G_OBJECT_TYPE(obj)));
+    GST_ERROR("%s: gst_plugin_feature_get_name %s",__FUNCTION__,
+              gst_plugin_feature_get_name(GST_ELEMENT_GET_CLASS(obj)->elementfactory) );                     
+
+    GST_ERROR("element_cb from element %s,videsink[0x%x]",GST_OBJECT_NAME (msg->src),data->video_sink);
+
+
+
+    data->video_sink = gst_bin_get_by_interface(GST_BIN(data->pipeline), GST_TYPE_VIDEO_OVERLAY);
+
+    if(data->video_sink)
+    {
+      GST_DEBUG ("looking for video sink: 0x%x",data->video_sink);
+
+#if USE_PLAYBIN
+      GST_DEBUG ("skipp overlay_set_window");
+#else
+      GST_DEBUG ("calling overlay_set_window");
+      gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY(data->video_sink), (guintptr)data->native_window);
+#endif
+      GST_DEBUG ("video_overlay_set_window to video sink: 0x%x",data->video_sink);
+    }
+    else
+    {
+      GST_DEBUG ("failed to get video sink!!!");
+    }
+
+
+
+  }
+}
 /* Called when buffering messages are received. We inform the UI about the current buffering level and
  * keep the pipeline paused until 100% buffering is reached. At that point, set the desired state. */
 static void
@@ -285,10 +336,14 @@ buffering_cb (GstBus * bus, GstMessage * msg, CustomData * data)
 {
   gint percent;
 
+  GST_ERROR("buffering_cb data->is_live %d, tartget state[%s]",data->is_live,gst_element_state_get_name(data->target_state));
+
   if (data->is_live)
     return;
 
   gst_message_parse_buffering (msg, &percent);
+  GST_ERROR("buffering_cb percent %d",percent);
+
   if (percent < 100 && data->target_state >= GST_STATE_PAUSED) {
     gchar *message_string = g_strdup_printf ("Buffering %d%%", percent);
     gst_element_set_state (data->pipeline, GST_STATE_PAUSED);
@@ -321,7 +376,11 @@ check_media_size (CustomData * data)
   GstCaps *caps;
   GstVideoInfo info;
 
+  GST_DEBUG ("check_media_size enter");
+
+#if USE_PLAYBIN
   /* Retrieve the Caps at the entrance of the video sink */
+  GST_DEBUG ("Retrieve the video sink from playbin");
   g_object_get (data->pipeline, "video-sink", &video_sink, NULL);
   video_sink_pad = gst_element_get_static_pad (video_sink, "sink");
   caps = gst_pad_get_current_caps (video_sink_pad);
@@ -342,7 +401,84 @@ check_media_size (CustomData * data)
   gst_caps_unref (caps);
   gst_object_unref (video_sink_pad);
   gst_object_unref (video_sink);
+#else
+  /* Retrieve the Caps at the entrance of the video sink */
+  // g_object_get (data->pipeline, "video-sink", &video_sink, NULL);
+  video_sink = data->video_sink;
+
+  GST_DEBUG ("Should have video_sink[0x%x]",video_sink);
+
+  video_sink_pad = gst_element_get_static_pad (video_sink, "sink");
+  caps = gst_pad_get_current_caps (video_sink_pad);
+
+  if (gst_video_info_from_caps (&info, caps)) {
+    info.width = info.width * info.par_n / info.par_d;
+    GST_DEBUG ("Media size is %dx%d, notifying application", info.width,
+        info.height);
+
+    (*env)->CallVoidMethod (env, data->app, on_media_size_changed_method_id,
+        (jint) info.width, (jint) info.height);
+    if ((*env)->ExceptionCheck (env)) {
+      GST_ERROR ("Failed to call Java method");
+      (*env)->ExceptionClear (env);
+    }
+  }
+
+  gst_caps_unref (caps);
+  gst_object_unref (video_sink_pad);
+  gst_object_unref (video_sink);
+
+#endif
+GST_DEBUG ("check_media_size exit");
+
 }
+
+
+static void cres_add_graph (CustomData *data)
+{
+  //Crestron change starts
+  // CustomData *data = GET_CUSTOM_DATA (env, thiz, custom_data_field_id);
+  if (!data)
+    return;
+
+  GST_DEBUG ("cres_add_graph /data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/graph");
+
+  /**
+   *  set path GST_DEBUG_DUMP_DOT_DIR to /data/app/gst-graph
+   */
+  if(data->pipeline)
+  {
+    gchar *full_file_name = NULL;
+    FILE *out;
+    GstBin * bin = data->pipeline;
+
+    //Note: this app has its own space :  /data/data/org.freedesktop.gstreamer.tutorials.tutorial_5
+    //      and lib file is installed in: /data/app/org.freedesktop.gstreamer.tutorials.tutorial_5-2W78GrP_rHsTe_bHsPvJZg==
+    GstDebugGraphDetails details = GST_DEBUG_GRAPH_SHOW_ALL;
+    full_file_name = g_strdup_printf ("%s" G_DIR_SEPARATOR_S "%s.dot",
+            "/data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/graph", "pipeline");
+    if ((out = fopen (full_file_name, "wb")))
+    {
+      gchar *buf;
+
+      buf = gst_debug_bin_to_dot_data (bin, details);
+      fputs (buf, out);
+
+      g_free (buf);
+      fclose (out);
+
+      GST_INFO ("wrote bin graph to : '%s'", full_file_name);
+    }
+    else
+    {
+      GST_WARNING ("Failed to open file '%s' for writing: %s", full_file_name,
+                   g_strerror (errno));
+    }
+    g_free (full_file_name);
+  }
+  //Crestron change ends
+}
+
 
 /* Notify UI about pipeline state changes */
 static void
@@ -370,6 +506,12 @@ state_changed_cb (GstBus * bus, GstMessage * msg, CustomData * data)
       if (GST_CLOCK_TIME_IS_VALID (data->desired_position))
         execute_seek (data->desired_position, data);
     }
+
+    if(new_state == GST_STATE_PLAYING)
+    {
+      GST_DEBUG("new_state is in GST_STATE_PLAYING");
+      cres_add_graph(data);
+    }
   }
 }
 
@@ -384,9 +526,12 @@ check_initialization_complete (CustomData * data)
         ("Initialization complete, notifying application. native_window:%p main_loop:%p",
         data->native_window, data->main_loop);
 
+#if USE_PLAYBIN
+    GST_DEBUG("calling video_overlay_set_window here.");
     /* The main loop is running and we received a native window, inform the sink about it */
     gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (data->pipeline),
         (guintptr) data->native_window);
+#endif
 
     (*env)->CallVoidMethod (env, data->app, on_gstreamer_initialized_method_id);
     if ((*env)->ExceptionCheck (env)) {
@@ -397,7 +542,52 @@ check_initialization_complete (CustomData * data)
   }
 }
 
+gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
+{
+  if(GST_IS_ELEMENT(GST_MESSAGE_SRC(msg)))
+  {
+    GstObject *obj = GST_MESSAGE_SRC(msg);
+    GST_DEBUG("%s: obj[%s]",__FUNCTION__,GST_OBJECT_NAME(obj));
+    GST_DEBUG("%s: g_type_name[%s]",__FUNCTION__, g_type_name(G_OBJECT_TYPE(obj)));
+    GST_DEBUG("%s: gst_plugin_feature_get_name %s",__FUNCTION__,
+             gst_plugin_feature_get_name(GST_ELEMENT_GET_CLASS(obj)->elementfactory) );
+  }
+
+  GST_DEBUG("%s: GST_MESSAGE_TYPE name[%s]",__FUNCTION__,GST_MESSAGE_TYPE_NAME(msg));
+
+}
+/* Functions below print the Capabilities in a human-friendly format */
+static gboolean print_field (GQuark field, const GValue * value, gpointer pfx) {
+    gchar *str = gst_value_serialize (value);
+
+    g_print ("%s  %15s: %s\n", (gchar *) pfx, g_quark_to_string (field), str);
+    g_free (str);
+    return TRUE;
+}
+static void print_caps (const GstCaps * caps, const gchar * pfx) {
+    guint i;
+
+    g_return_if_fail (caps != NULL);
+
+    if (gst_caps_is_any (caps)) {
+        g_print ("%sANY\n", pfx);
+        return;
+    }
+    if (gst_caps_is_empty (caps)) {
+        g_print ("%sEMPTY\n", pfx);
+        return;
+    }
+
+    for (i = 0; i < gst_caps_get_size (caps); i++) {
+        GstStructure *structure = gst_caps_get_structure (caps, i);
+
+        g_print ("%s%s\n", pfx, gst_structure_get_name (structure));
+        gst_structure_foreach (structure, print_field, (gpointer) pfx);
+    }
+}
+
 /* Main method for the native code. This is executed on its own thread. */
+#if USE_PLAYBIN
 static void *
 app_function (void *userdata)
 {
@@ -408,10 +598,66 @@ app_function (void *userdata)
   GSource *bus_source;
   GError *error = NULL;
   guint flags;
+  guint m_bus_id; //Crestron change
 
   GST_DEBUG ("Creating pipeline in CustomData at %p", data);
 
   //Crestron change starts
+  if(1)
+  {
+    GstRegistry *registry = NULL;
+    GstElementFactory *factory = NULL;
+
+    factory = gst_element_factory_find ("amcviddec-omxqcomvideodecoderavc");
+    GST_DEBUG ("Creating GST_ELEMENT_FACTORY amcviddec-omxqcomvideodecoderavc: %p", factory);
+
+      GST_DEBUG ("Pad Templates for %s:\n", gst_element_factory_get_longname (factory));
+    if (!gst_element_factory_get_num_pad_templates (factory)) {
+      GST_DEBUG ("get_num_pad returns  none\n");
+    }
+    else
+    {
+      const GList *pads = gst_element_factory_get_static_pad_templates (factory);
+      GstStaticPadTemplate *padtemplate;
+
+        while (pads) {
+            padtemplate = pads->data;
+            pads = g_list_next (pads);
+
+            if (padtemplate->direction == GST_PAD_SRC)
+                GST_DEBUG ("  SRC template: '%s'\n", padtemplate->name_template);
+            else if (padtemplate->direction == GST_PAD_SINK)
+                GST_DEBUG ("  SINK template: '%s'\n", padtemplate->name_template);
+            else
+                GST_DEBUG ("  UNKNOWN!!! template: '%s'\n", padtemplate->name_template);
+
+            if (padtemplate->presence == GST_PAD_ALWAYS)
+                GST_DEBUG ("    Availability: Always\n");
+            else if (padtemplate->presence == GST_PAD_SOMETIMES)
+                GST_DEBUG ("    Availability: Sometimes\n");
+            else if (padtemplate->presence == GST_PAD_REQUEST)
+                GST_DEBUG ("    Availability: On request\n");
+            else
+                GST_DEBUG ("    Availability: UNKNOWN!!!\n");
+
+            if (padtemplate->static_caps.string) {
+                GstCaps *caps;
+                GST_DEBUG ("    Capabilities:\n");
+                caps = gst_static_caps_get (&padtemplate->static_caps);
+                print_caps (caps, "      ");
+                gst_caps_unref (caps);
+
+            }
+
+            GST_DEBUG ("\n");
+        }
+
+
+    }
+  }
+
+
+  if(0)
   {
         GstRegistry *registry = NULL;
         GstElementFactory *factory = NULL;
@@ -444,6 +690,45 @@ app_function (void *userdata)
 
   /* Build pipeline */
   data->pipeline = gst_parse_launch ("playbin", &error);
+
+  {
+    GST_DEBUG ("try to print  playbin: %p", data->pipeline);
+    gst_element_print_properties(data->pipeline);
+
+    GST_DEBUG ("try to create pipeline  videotestsrc ! ....");
+    GstElement* pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
+    if(GST_IS_ELEMENT (pipeline))
+    {
+      GST_DEBUG ("Created element: %p", pipeline);
+      gst_element_print_properties(pipeline);
+
+      if(GST_IS_PIPELINE(pipeline))
+      {
+        GST_DEBUG ("This element is pipeline");
+
+        GstElement* video_sink = gst_bin_get_by_interface(GST_BIN(pipeline), GST_TYPE_VIDEO_OVERLAY);
+
+        if(video_sink)
+        {
+          GST_DEBUG ("looking for video sink: 0x%x",video_sink);
+          gst_element_print_properties(video_sink);
+        }
+        else
+        {
+          GST_DEBUG ("failed to get video sink!!!");
+        }
+      }
+      else
+      {
+        GST_DEBUG ("Failed to create pipeline!!!");
+      }
+    }
+    else
+    {
+      GST_DEBUG ("Failed to create element!!!");
+    }
+  }
+
   if (error) {
     gchar *message =
         g_strdup_printf ("Unable to build pipeline: %s", error->message);
@@ -478,8 +763,115 @@ app_function (void *userdata)
       (GCallback) duration_cb, data);
   g_signal_connect (G_OBJECT (bus), "message::buffering",
       (GCallback) buffering_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::element",
+      (GCallback) element_cb, data);
   g_signal_connect (G_OBJECT (bus), "message::clock-lost",
       (GCallback) clock_lost_cb, data);
+  
+//  bus already got an event source
+//  m_bus_id = gst_bus_add_watch( G_OBJECT (bus), (GstBusFunc) csio_GstMsgHandler, data );//Crestron change
+//  GST_DEBUG ("app_function m_bus_id: %d", m_bus_id);
+
+
+    gst_object_unref (bus);
+
+  /* Register a function that GLib will call 4 times per second */
+  timeout_source = g_timeout_source_new (250);
+  g_source_set_callback (timeout_source, (GSourceFunc) refresh_ui, data, NULL);
+  g_source_attach (timeout_source, data->context);
+  g_source_unref (timeout_source);
+
+  /* Create a GLib Main Loop and set it to run */
+  GST_DEBUG ("Entering main loop... (CustomData:%p)", data);
+  data->main_loop = g_main_loop_new (data->context, FALSE);
+  check_initialization_complete (data);
+  g_main_loop_run (data->main_loop);
+  GST_DEBUG ("Exited main loop");
+//  g_source_remove( m_bus_id );//Crestron change
+
+  g_main_loop_unref (data->main_loop);
+  data->main_loop = NULL;
+
+  /* Free resources */
+  g_main_context_pop_thread_default (data->context);
+  g_main_context_unref (data->context);
+  data->target_state = GST_STATE_NULL;
+  gst_element_set_state (data->pipeline, GST_STATE_NULL);
+  gst_object_unref (data->pipeline);
+
+  return NULL;
+}
+#else
+static void *
+app_function (void *userdata)
+{
+  JavaVMAttachArgs args;
+  GstBus *bus;
+  CustomData *data = (CustomData *) userdata;
+  GSource *timeout_source;
+  GSource *bus_source;
+  GError *error = NULL;
+  guint flags;
+  guint m_bus_id; //Crestron change
+
+  GST_DEBUG ("Creating pipeline by hand. data: %p", data);  
+
+  /* Create our own GLib Main Context and make it the default one */
+  data->context = g_main_context_new ();
+  g_main_context_push_thread_default (data->context);
+
+  /* Build pipeline */
+  // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
+  // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink", &error);
+  // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
+  //                                    " rtph264depay ! decodebin ! videoconvert ! autovideosink", &error);
+  data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
+                                     " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
+
+  if (error) {
+    gchar *message =
+        g_strdup_printf ("Unable to build pipeline: %s", error->message);
+    g_clear_error (&error);
+    set_ui_message (message, data);
+    g_free (message);
+    return NULL;
+  }
+
+  /* Disable subtitles */
+  // g_object_get (data->pipeline, "flags", &flags, NULL);
+  // flags &= ~GST_PLAY_FLAG_TEXT;
+  // g_object_set (data->pipeline, "flags", flags, NULL);
+
+  /* Set the pipeline to READY, so it can already accept a window handle, if we have one */
+  data->target_state = GST_STATE_READY;
+  gst_element_set_state (data->pipeline, GST_STATE_READY);
+
+  /* Instruct the bus to emit signals for each received message, and connect to the interesting signals */
+  bus = gst_element_get_bus (data->pipeline);
+  bus_source = gst_bus_create_watch (bus);
+  g_source_set_callback (bus_source, (GSourceFunc) gst_bus_async_signal_func,
+      NULL, NULL);
+  g_source_attach (bus_source, data->context);
+  g_source_unref (bus_source);
+  g_signal_connect (G_OBJECT (bus), "message::error", (GCallback) error_cb,
+      data);
+  g_signal_connect (G_OBJECT (bus), "message::eos", (GCallback) eos_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::state-changed",
+      (GCallback) state_changed_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::duration",
+      (GCallback) duration_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::buffering",
+      (GCallback) buffering_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::element",
+      (GCallback) element_cb, data);
+  g_signal_connect (G_OBJECT (bus), "message::clock-lost",
+      (GCallback) clock_lost_cb, data);
+  
+//  bus already got an event source
+//  m_bus_id = gst_bus_add_watch( G_OBJECT (bus), (GstBusFunc) csio_GstMsgHandler, data );//Crestron change
+//  GST_DEBUG ("app_function m_bus_id: %d", m_bus_id);
+
+
   gst_object_unref (bus);
 
   /* Register a function that GLib will call 4 times per second */
@@ -494,6 +886,8 @@ app_function (void *userdata)
   check_initialization_complete (data);
   g_main_loop_run (data->main_loop);
   GST_DEBUG ("Exited main loop");
+//  g_source_remove( m_bus_id );//Crestron change
+
   g_main_loop_unref (data->main_loop);
   data->main_loop = NULL;
 
@@ -506,7 +900,7 @@ app_function (void *userdata)
 
   return NULL;
 }
-
+#endif
 /*
  * Java Bindings
  */
@@ -515,6 +909,9 @@ app_function (void *userdata)
 static void
 gst_native_init (JNIEnv * env, jobject thiz)
 {
+  __android_log_print (ANDROID_LOG_ERROR, "GStreamer",
+                       "gst_native_init in tutorial-5.c");
+
   CustomData *data = g_new0 (CustomData, 1);
   data->desired_position = GST_CLOCK_TIME_NONE;
   data->last_seek_time = GST_CLOCK_TIME_NONE;
@@ -560,7 +957,10 @@ gst_native_set_uri (JNIEnv * env, jobject thiz, jstring uri)
   if (!data || !data->pipeline)
     return;
   const gchar *char_uri = (*env)->GetStringUTFChars (env, uri, NULL);
-  GST_DEBUG ("Setting URI to %s", char_uri);
+  GST_DEBUG ("Setting URI to %s, target state: %s.", 
+              char_uri,
+              gst_element_state_get_name(data->target_state));
+              
   if (data->target_state >= GST_STATE_READY)
     gst_element_set_state (data->pipeline, GST_STATE_READY);
   g_object_set (data->pipeline, "uri", char_uri, NULL);
@@ -598,42 +998,7 @@ gst_native_pause (JNIEnv * env, jobject thiz)
       (gst_element_set_state (data->pipeline,
           GST_STATE_PAUSED) == GST_STATE_CHANGE_NO_PREROLL);
 
-
-  //Crestron change starts
-  /**
-   *  set path GST_DEBUG_DUMP_DOT_DIR to /data/app/gst-graph
-   */
-  if(data->pipeline)
-  {
-    gchar *full_file_name = NULL;
-    FILE *out;
-    GstBin * bin = data->pipeline;
-
-    //Note: this app has its own space :  /data/data/org.freedesktop.gstreamer.tutorials.tutorial_5
-    //      and lib file is installed in: /data/app/org.freedesktop.gstreamer.tutorials.tutorial_5-2W78GrP_rHsTe_bHsPvJZg==
-    GstDebugGraphDetails details = GST_DEBUG_GRAPH_SHOW_ALL;
-    full_file_name = g_strdup_printf ("%s" G_DIR_SEPARATOR_S "%s.dot",
-                                      "/data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/graph", "pipeline");
-    if ((out = fopen (full_file_name, "wb")))
-    {
-      gchar *buf;
-
-      buf = gst_debug_bin_to_dot_data (bin, details);
-      fputs (buf, out);
-
-      g_free (buf);
-      fclose (out);
-
-      GST_INFO ("wrote bin graph to : '%s'", full_file_name);
-    }
-    else
-    {
-      GST_WARNING ("Failed to open file '%s' for writing: %s", full_file_name,
-                   g_strerror (errno));
-    }
-    g_free (full_file_name);
-  }
-  //Crestron change ends
+  cres_add_graph(data);//Crestron change
 }
 
 /* Instruct the pipeline to seek to a different position */
@@ -730,8 +1095,19 @@ gst_native_surface_finalize (JNIEnv * env, jobject thiz)
   GST_DEBUG ("Releasing Native Window %p", data->native_window);
 
   if (data->pipeline) {
+#if USE_PLAYBIN
+    GST_DEBUG("calling video_overlay_set_window NULL here.");
     gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (data->pipeline),
         (guintptr) NULL);
+#else
+    if (data->video_sink)
+    {  
+        GST_DEBUG("calling video_overlay_set_window directly to video sink to NULL.");
+        gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (data->video_sink),
+          (guintptr) NULL);
+    }
+#endif
+
     gst_element_set_state (data->pipeline, GST_STATE_READY);
   }
 
@@ -762,14 +1138,15 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
 
   java_vm = vm;
 
-    __android_log_print (ANDROID_LOG_ERROR, "tutorial-5",
-                         "JNI_OnLoad in tutorial-5");
+  __android_log_print (ANDROID_LOG_ERROR, "GStreamer",
+                       "JNI_OnLoad in tutorial-5.c[%s]",getenv("GST_DEBUG"));
+  csio_init();
 
   //Crestron change starts
   //setenv("GST_DEBUG","*:5",1);
   //setenv("GST_DEBUG","rtpjitterbuffer:5",1);
   //setenv("GST_DEBUG","amc:5",1);
-  //setenv("GST_DEBUG","GST_ELEMENT_FACTORY:5",1);
+  setenv("GST_DEBUG","GST_ELEMENT_FACTORY:5",1);
   //setenv("GST_AMC_IGNORE_UNKNOWN_COLOR_FORMATS", "yes", 1);
   /**
    * did not work,we are not using gst-launch-1.0 here.
@@ -791,6 +1168,9 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
       G_N_ELEMENTS (native_methods));
 
   pthread_key_create (&current_jni_env, detach_current_thread);
+
+    __android_log_print (ANDROID_LOG_ERROR, "GStreamer",
+                         "JNI_OnLoad returned in tutorial-5.c[%s]",getenv("GST_DEBUG"));
 
   return JNI_VERSION_1_4;
 }

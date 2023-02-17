@@ -11,6 +11,7 @@ ipch
 *.opensdf
 *.so
 *.o
+
 vs/2010/libs
 bin
 gen
