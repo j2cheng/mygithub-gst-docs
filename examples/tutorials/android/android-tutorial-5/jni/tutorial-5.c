@@ -544,6 +544,11 @@ check_initialization_complete (CustomData * data)
 
 gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
 {
+  CustomData *data = (CustomData *) arg;
+  GError    *err;
+  gchar     *debug_info = NULL;
+  gint      percent;
+
   if(GST_IS_ELEMENT(GST_MESSAGE_SRC(msg)))
   {
     GstObject *obj = GST_MESSAGE_SRC(msg);
@@ -551,10 +556,176 @@ gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
     GST_DEBUG("%s: g_type_name[%s]",__FUNCTION__, g_type_name(G_OBJECT_TYPE(obj)));
     GST_DEBUG("%s: gst_plugin_feature_get_name %s",__FUNCTION__,
              gst_plugin_feature_get_name(GST_ELEMENT_GET_CLASS(obj)->elementfactory) );
+
+    if(!data->video_sink)
+    {
+      data->video_sink = gst_bin_get_by_interface(GST_BIN(data->pipeline), GST_TYPE_VIDEO_OVERLAY);
+      GST_DEBUG ("looking for video sink: 0x%x",data->video_sink);
+      
+      if(data->video_sink)
+      {       
+
+#if USE_PLAYBIN
+        GST_DEBUG ("skipp overlay_set_window");
+#else
+        GST_DEBUG ("calling overlay_set_window");
+        gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY(data->video_sink), (guintptr)data->native_window);
+#endif
+        GST_DEBUG ("video_overlay_set_window to video sink: 0x%x",data->video_sink);
+      }
+      else
+      {
+        GST_DEBUG ("failed to get video sink!!!");
+      }
+    }
+
   }
 
-  GST_DEBUG("%s: GST_MESSAGE_TYPE name[%s]",__FUNCTION__,GST_MESSAGE_TYPE_NAME(msg));
+  switch (GST_MESSAGE_TYPE(msg))
+  {
+    case GST_MESSAGE_NEW_CLOCK:
+    {
+        GstClock *clock;
 
+        gst_message_parse_new_clock (msg, &clock);
+
+        GST_DEBUG("New clock: %s\n", (clock ? GST_OBJECT_NAME (clock) : "NULL"));
+        break;
+    }
+    case GST_MESSAGE_CLOCK_LOST:
+    {
+      GST_DEBUG("Clock lost, selecting a new one\n");    
+      if (data->target_state >= GST_STATE_PLAYING) 
+      {
+        gst_element_set_state (data->pipeline, GST_STATE_PAUSED);
+        gst_element_set_state (data->pipeline, GST_STATE_PLAYING);
+      }     
+      break;
+    }
+    case GST_MESSAGE_WARNING:
+    {
+      gst_message_parse_warning( msg, &err, &debug_info );
+      if(err->message)
+      {
+          GST_DEBUG("%s: WARNING MESSAGE: %s", __FUNCTION__, err->message);
+      }
+
+      if( debug_info )
+      {
+        GST_DEBUG("%s: debug_info: %s", __FUNCTION__, debug_info);
+               
+        g_free( debug_info );
+      }
+
+      g_clear_error( &err );
+      break;
+    }
+    case GST_MESSAGE_ERROR:
+    {
+      gst_message_parse_error( msg, &err, &debug_info );
+      GST_DEBUG("%s: err->code: %d", __FUNCTION__, err->code);
+      if( debug_info )
+      {
+        GST_DEBUG("%s: debug_info: %s", __FUNCTION__, debug_info);
+               
+        g_free( debug_info );
+      }
+      
+      g_clear_error( &err );
+      break;
+    }
+    case GST_MESSAGE_EOS:
+    {
+      GST_DEBUG("%s: GST_MESSAGE_EOS", __FUNCTION__);
+      break;
+    }
+    case GST_MESSAGE_STATE_CHANGED:
+    {
+      if( GST_MESSAGE_SRC(msg) == GST_OBJECT( data->pipeline) )
+      {
+        GstState old_state, new_state, pending_state;
+        gst_message_parse_state_changed( msg, &old_state, &new_state,
+                                          &pending_state );        
+        
+        data->state = new_state;
+
+        gchar *message = g_strdup_printf ("State changed to %s",
+        gst_element_state_get_name (new_state));
+        set_ui_message (message, data);
+        g_free (message);
+
+        GST_DEBUG("Pipeline state changed from %s to %s:\n",
+                  gst_element_state_get_name( old_state ),
+                  gst_element_state_get_name( new_state) );
+
+        if (new_state == GST_STATE_NULL || new_state == GST_STATE_READY)
+          data->is_live = FALSE;
+
+        /* The Ready to Paused state change is particularly interesting: */
+        if (old_state == GST_STATE_READY && new_state == GST_STATE_PAUSED) {
+          /* By now the sink already knows the media size */
+          check_media_size (data);
+
+          /* If there was a scheduled seek, perform it now that we have moved to the Paused state */
+          if (GST_CLOCK_TIME_IS_VALID (data->desired_position))
+            execute_seek (data->desired_position, data);
+        }
+        
+        if(new_state == GST_STATE_PLAYING)
+        {
+          GST_DEBUG("new_state is in GST_STATE_PLAYING");
+          cres_add_graph(data);
+        }  
+      }   
+      break;
+    }
+    case GST_MESSAGE_BUFFERING:
+    {
+        gst_message_parse_buffering (msg, &percent);
+        GST_DEBUG("buffer pct=%d\n", percent);   
+        break;      
+    }
+    case GST_MESSAGE_QOS:
+    {
+        GST_DEBUG( "%s: GST_MESSAGE_QOS: SEQNUM: %d received %s from %s..\n",
+                  __FUNCTION__,
+                  GST_MESSAGE_SEQNUM(msg),
+                  GST_MESSAGE_TYPE_NAME(msg),
+                  GST_MESSAGE_SRC_NAME(msg));
+
+        GstFormat format;
+        guint64 processed;
+        guint64 dropped;
+        gst_message_parse_qos_stats(msg,&format,&processed,&dropped);
+        GST_DEBUG("%s: GST_MESSAGE_QOS: format[%s]----- processed[%lld],dropped[%lld]",
+                  __FUNCTION__,gst_format_get_name(format),processed,dropped);
+
+        gint64 jitter;
+        gdouble proportion;
+        gint quality;
+        gst_message_parse_qos_values(msg,&jitter,&proportion,&quality);
+        GST_DEBUG("%s: GST_MESSAGE_QOS: jitter[%lld]----- processed[%f],quality[%d]",
+                  __FUNCTION__,jitter,proportion,quality);
+
+        gboolean live;
+        guint64 running_time;
+        guint64 stream_time;
+        guint64 timestamp;
+        guint64 duration;
+        gst_message_parse_qos(msg,&live,&running_time,&stream_time,&timestamp,&duration);
+        GST_DEBUG("%s: GST_MESSAGE_QOS: live stream[%d]----- running_time[%lld],stream_time[%lld],timestamp[%lld],duration[%ld]",
+                  __FUNCTION__,live,running_time,stream_time,timestamp,duration);
+
+        break;
+    }
+    case GST_MESSAGE_LATENCY:
+    {
+        GST_DEBUG("%s: GST_MESSAGE_LATENCY\n",__FUNCTION__);        
+        break;
+    }
+  }
+  GST_DEBUG("%s: exit GST_MESSAGE_TYPE name[%s]",__FUNCTION__,GST_MESSAGE_TYPE_NAME(msg));
+  return TRUE;
 }
 /* Functions below print the Capabilities in a human-friendly format */
 static gboolean print_field (GQuark field, const GValue * value, gpointer pfx) {
@@ -825,7 +996,7 @@ app_function (void *userdata)
   // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink", &error);
   // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
   //                                    " rtph264depay ! decodebin ! videoconvert ! autovideosink", &error);
-  data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
+  data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa latency=45 !"
                                      " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
 
   if (error) {
@@ -846,33 +1017,11 @@ app_function (void *userdata)
   data->target_state = GST_STATE_READY;
   gst_element_set_state (data->pipeline, GST_STATE_READY);
 
-  /* Instruct the bus to emit signals for each received message, and connect to the interesting signals */
+  //using csio_GstMsgHandler()
   bus = gst_element_get_bus (data->pipeline);
-  bus_source = gst_bus_create_watch (bus);
-  g_source_set_callback (bus_source, (GSourceFunc) gst_bus_async_signal_func,
-      NULL, NULL);
-  g_source_attach (bus_source, data->context);
-  g_source_unref (bus_source);
-  g_signal_connect (G_OBJECT (bus), "message::error", (GCallback) error_cb,
-      data);
-  g_signal_connect (G_OBJECT (bus), "message::eos", (GCallback) eos_cb, data);
-  g_signal_connect (G_OBJECT (bus), "message::state-changed",
-      (GCallback) state_changed_cb, data);
-  g_signal_connect (G_OBJECT (bus), "message::duration",
-      (GCallback) duration_cb, data);
-  g_signal_connect (G_OBJECT (bus), "message::buffering",
-      (GCallback) buffering_cb, data);
-  g_signal_connect (G_OBJECT (bus), "message::element",
-      (GCallback) element_cb, data);
-  g_signal_connect (G_OBJECT (bus), "message::clock-lost",
-      (GCallback) clock_lost_cb, data);
-  
-//  bus already got an event source
-//  m_bus_id = gst_bus_add_watch( G_OBJECT (bus), (GstBusFunc) csio_GstMsgHandler, data );//Crestron change
-//  GST_DEBUG ("app_function m_bus_id: %d", m_bus_id);
+  m_bus_id = gst_bus_add_watch( G_OBJECT (bus), (GstBusFunc) csio_GstMsgHandler, data );//Crestron change
+  GST_DEBUG ("app_function m_bus_id: %d", m_bus_id);
 
-
-  gst_object_unref (bus);
 
   /* Register a function that GLib will call 4 times per second */
   timeout_source = g_timeout_source_new (250);
