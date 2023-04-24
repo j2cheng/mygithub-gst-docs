@@ -1,18 +1,16 @@
 //
 // Created by builduser on 2/15/23.
 //
-#include "gst_element_print_properties.h"
-
 #ifndef ANDROID_CSIO_H
 #define ANDROID_CSIO_H
 
-#define MAX_PROJCT_OBJ          1
+#define MAX_PROJCT_OBJ 1
 
-#define MAX_STREAM_OUT 1
+#define MAX_STREAM 10
 
-#define IsValidStreamOut(a)  ( (a >= 0) && (a < MAX_STREAM_OUT) )
+#define IsValidStream(a)  ( (a >= 0) && (a < MAX_STREAM) )
 
-//Note: make sure to match with wfd_proj_timestamp_names[]
+//Note: make sure to match with csio_proj_timestamp_names[]
 enum
 {
     CSIO_PROJ_TIMESTAMP_INIT = 0,
@@ -30,13 +28,30 @@ enum
     CSIO_PROJ_TIMER_MAX
 };
 
+typedef enum _eCsioProjEvents
+{
+//events come from CSIO to the project
+    CSIOPROJ_EVENTS_CSIO_CONFIG = 100,
+
+    CSIOPROJ_EVENT_CSIO_START_SERV,
+	CSIOPROJ_EVENT_CSIO_STOP_SERV,
+
+	CSIOPROJ_EVENT_CSIO_START_CLIENT,
+	CSIOPROJ_EVENT_CSIO_STOP_CLIENT,
+
+	CSIOPROJ_EVENT_CSIO_RESTART_CLIENT,
+
+	CSIOPROJ_EVENTS_MAX
+}eCsioProjEvents;
+
 #define CSIO_PROJ_EVNT_POLL_SLEEP_MS   1000   //1000ms
 
 
 #ifdef __cplusplus
 #include "csioCommBase.h""
+#include "gstmanager/gstManager.h"
 
-class csioManagerClass;
+class gstManager;
 
 class csioProjectClass : public csioThreadBaseClass
 {
@@ -61,29 +76,17 @@ private:
     int  m_projectID;
     void* ThreadEntry();
 
-    csioManagerClass** m_csioManagerTaskObjList ;
+    gstManager** m_csioManagerTaskObjList ;
 
     csioEventQueueListBase* m_projEventQList;
 
-    void* createCharArray(int size) { return new char [size]; }
-    void deleteCharArray(void* buf)
-    {
-        if(buf)
-        {
-            char* tmp = (char*)buf;
-            delete [] tmp;
-        }
-    }
+    bool checkStartSrv();
+    bool checkStopSrv();
 };
 
-class csioManagerClass : public csioThreadBaseClass
-{
-public:
+extern void csioProjStartServer(int streamID);
+extern void csioProjStopServer(int streamID);
 
-    csioManagerClass(int id){};
-    ~csioManagerClass();
-
-};
 #endif
 
 #ifdef __cplusplus
