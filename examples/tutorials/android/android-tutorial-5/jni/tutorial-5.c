@@ -531,6 +531,20 @@ check_initialization_complete (CustomData * data)
     /* The main loop is running and we received a native window, inform the sink about it */
     gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY (data->pipeline),
         (guintptr) data->native_window);
+#else
+    GST_DEBUG ("check_initialization_complete video sink: %p, window: %p",data->video_sink,(guintptr)data->native_window);
+
+    if(data->video_sink && data->native_window)
+    {
+      GST_DEBUG ("calling overlay_set_window: native_window: %p",data->native_window);
+      gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY(data->video_sink), (guintptr)data->native_window);
+
+      GST_DEBUG ("video_overlay_set_window to video sink: %p, window: %p",data->video_sink,(guintptr)data->native_window);
+    }
+    else
+    {
+      GST_DEBUG ("failed to get video sink!!!");
+    }
 #endif
 
     (*env)->CallVoidMethod (env, data->app, on_gstreamer_initialized_method_id);
@@ -560,18 +574,18 @@ gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
     if(!data->video_sink)
     {
       data->video_sink = gst_bin_get_by_interface(GST_BIN(data->pipeline), GST_TYPE_VIDEO_OVERLAY);
-      GST_DEBUG ("looking for video sink: 0x%x",data->video_sink);
+      GST_DEBUG ("looking for video sink: %p,native_window: %p",data->video_sink,data->native_window);
       
-      if(data->video_sink)
+      if(data->video_sink && data->native_window)
       {       
 
 #if USE_PLAYBIN
         GST_DEBUG ("skipp overlay_set_window");
 #else
-        GST_DEBUG ("calling overlay_set_window");
+        GST_DEBUG ("calling overlay_set_window: native_window: %p",data->native_window);
         gst_video_overlay_set_window_handle (GST_VIDEO_OVERLAY(data->video_sink), (guintptr)data->native_window);
 #endif
-        GST_DEBUG ("video_overlay_set_window to video sink: 0x%x",data->video_sink);
+        GST_DEBUG ("video_overlay_set_window to video sink: %p, window: %p",data->video_sink,(guintptr)data->native_window);
       }
       else
       {
@@ -992,12 +1006,35 @@ app_function (void *userdata)
   g_main_context_push_thread_default (data->context);
 
   /* Build pipeline */
+  data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa latency=45 !"
+                                     " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
+
   // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
   // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink", &error);
   // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
   //                                    " rtph264depay ! decodebin ! videoconvert ! autovideosink", &error);
-  data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa latency=45 !"
-                                     " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
+  
+  // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
+  // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink", &error);
+  // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
+  //                                    " rtph264depay ! decodebin ! queue ! videoconvert ! autovideosink", &error);
+  // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa latency=45 !"
+  //                                    " rtph264depay ! decodebin ! queue ! videoconvert ! glimagesink", &error);
+
+  // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa latency=45 !"
+  //                                   " decodebin ! queue ! videoconvert ! videoscale ! video/x-raw(memory:GLMemory) ! glimagesink", &error);
+  // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa latency=45 !"
+  //                                    " decodebin ! video/x-raw, format=RGBA ! queue ! videoconvert ! videoscale ! glimagesink", &error);
+
+  //data->pipeline = gst_parse_launch ("audiotestsrc ! audioconvert ! audioresample ! autoaudiosink ", &error); ends up with fakesink
+  // data->pipeline = gst_parse_launch ("audiotestsrc ! audioconvert ! audioresample ! openslessink ", &error); //not working
+  // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://10.116.165.119:8554/test latency=45 !"
+  //                                    " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
+
+
+  // data->pipeline = gst_parse_launch ("playbin uri=rtsp://10.116.165.119:8554/test", &error);
+
+  //  data->pipeline = gst_parse_launch ("audiotestsrc ! audioconvert ! audioresample ! audio/x-raw, rate=48000 ! openslessink ", &error);
 
   if (error) {
     gchar *message =
@@ -1077,6 +1114,8 @@ gst_native_init (JNIEnv * env, jobject thiz)
   gst_debug_set_threshold_for_name ("amcvideodec", GST_LEVEL_WARNING);//Crestron change
 
   pthread_create (&gst_app_thread, NULL, &app_function, data);
+
+  csio_init();
 }
 
 /* Quit the main loop, remove the native thread and free resources */
@@ -1289,13 +1328,19 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
 
   __android_log_print (ANDROID_LOG_ERROR, "GStreamer",
                        "JNI_OnLoad in tutorial-5.c[%s]",getenv("GST_DEBUG"));
-  csio_init();
+  // csio_init();
 
   //Crestron change starts
-  //setenv("GST_DEBUG","*:5",1);
+  setenv("GST_DEBUG","*:3",1);
+
+  //Note: do not use GST_DEBUG here.
+  //      use GST_DEBUG_CATEGORY_INIT in gst_native_init()
+  //      to set each category level by gst_debug_set_threshold_for_name().
   //setenv("GST_DEBUG","rtpjitterbuffer:5",1);
   //setenv("GST_DEBUG","amc:5",1);
-  setenv("GST_DEBUG","GST_ELEMENT_FACTORY:5",1);
+  //setenv("GST_DEBUG","GST_ELEMENT_FACTORY:5",1);
+
+
   //setenv("GST_AMC_IGNORE_UNKNOWN_COLOR_FORMATS", "yes", 1);
   /**
    * did not work,we are not using gst-launch-1.0 here.
