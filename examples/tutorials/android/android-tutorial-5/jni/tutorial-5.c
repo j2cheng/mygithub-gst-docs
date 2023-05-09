@@ -1006,13 +1006,13 @@ app_function (void *userdata)
   g_main_context_push_thread_default (data->context);
 
   /* Build pipeline */
-  data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa latency=45 !"
-                                     " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
+  //data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa latency=45 !"
+  //                                    " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
 
   // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
   // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink", &error);
   // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
-  //                                    " rtph264depay ! decodebin ! videoconvert ! autovideosink", &error);
+  //                                    " rtph264depay ! decodebin ! queue ! videoconvert ! autovideosink", &error);
   
   // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);
   // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! videoconvert ! glimagesink", &error);
@@ -1034,7 +1034,7 @@ app_function (void *userdata)
 
   // data->pipeline = gst_parse_launch ("playbin uri=rtsp://10.116.165.119:8554/test", &error);
 
-  //  data->pipeline = gst_parse_launch ("audiotestsrc ! audioconvert ! audioresample ! audio/x-raw, rate=48000 ! openslessink ", &error);
+ data->pipeline = gst_parse_launch ("audiotestsrc ! audioconvert ! audioresample ! audio/x-raw, rate=48000 ! openslessink ", &error);
 
   if (error) {
     gchar *message =
@@ -1331,7 +1331,7 @@ JNI_OnLoad (JavaVM * vm, void *reserved)
   // csio_init();
 
   //Crestron change starts
-  setenv("GST_DEBUG","*:3",1);
+  setenv("GST_DEBUG","*:5",1);
 
   //Note: do not use GST_DEBUG here.
   //      use GST_DEBUG_CATEGORY_INIT in gst_native_init()
