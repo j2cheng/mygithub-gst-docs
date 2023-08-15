@@ -59,8 +59,13 @@ public class Tutorial5 extends Activity implements SurfaceHolder.Callback, OnSee
     //private final String defaultMediaUri = "https://www.freedesktop.org/software/gstreamer-sdk/data/media/sintel_trailer-480p.ogv";
 //    private final String defaultMediaUri = "rtsp://10.116.165.119:8554/test";
     //private final String defaultMediaUri = "rtsp://\"CrestronTest\":\"AVIcrestron34!\"@62.31.255.82:53554/Streaming/Channels/102";
-    private final String defaultMediaUri = "rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa";
-
+    //private final String defaultMediaUri = "rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa";
+//    private final String defaultMediaUri = "file:///data/app/AV1.mp4";//this one audio works only on AM3k
+//    private final String defaultMediaUri = "file:///data/app/sample1.mp3";
+//private final String defaultMediaUri = "file:///data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/High-Bass.mp4";
+    private final String defaultMediaUri = "http://10.64.134.2/High-Bass.mp4";
+//    private final String defaultMediaUri = "file:///data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/High-Bass.mp4";
+    //private final String defaultMediaUri = "http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4";
 
     static private final int PICK_FILE_CODE = 1;
     private String last_folder;
