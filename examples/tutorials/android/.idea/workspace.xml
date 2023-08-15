@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AndroidLayouts">
+    <shared>
+      <config />
+    </shared>
+  </component>
+  <component name="AndroidLogFilters">
+    <option name="TOOL_WINDOW_CONFIGURED_FILTER" value="Show only selected application" />
+  </component>
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="1904c69f-3c68-4cd4-9e54-9db76231ce19" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/jni/Android.mk" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/jni/Android.mk" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/jni/csio/csio.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/jni/csio/csio.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/jni/csio/csio.h" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/jni/csio/csio.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/jni/csio/csioCommBase.h" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/jni/csio/csioCommBase.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/res/layout/file_dialog_row.xml" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/res/layout/file_dialog_row.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/res/layout/main.xml" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/res/layout/main.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java" beforeDir="false" afterPath="$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/local.properties" beforeDir="false" afterPath="$PROJECT_DIR$/local.properties" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[10.254.44.61:5555]" />
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../../.." />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="jar://$USER_HOME$/Android/Sdk/platforms/android-23/android.jar!/android/content/ContextWrapper.class" root0="SKIP_INSPECTION" />
+    <setting file="jar://$USER_HOME$/Android/Sdk/platforms/android-23/android.jar!/android/media/MediaCodecList.class" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="MarkdownSettingsMigration">
+    <option name="stateVersion" value="1" />
+  </component>
+  <component name="ProjectId" id="2ERoyduHikMCLJs89eyCtF3gqCy" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="AnalyzeApkAction.lastApkPath" value="$PROJECT_DIR$/android-tutorial-5/build/outputs/apk/debug/android-tutorial-5-debug.apk" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="RunOnceActivity.cidr.known.project.marker" value="true" />
+    <property name="android-custom-view/home/builduser/gst-docs/examples/tutorials/android/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/GStreamerSurfaceView.java_GStreamerSurfaceView_DIMENSIONS" value="1080&#10;1920" />
+    <property name="android-custom-view/home/builduser/gst-docs/examples/tutorials/android/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/GStreamerSurfaceView.java_SELECTED" value="GStreamerSurfaceView" />
+    <property name="cidr.known.project.marker" value="true" />
+    <property name="last_opened_file_path" value="$USER_HOME$/cerbero/build/dist/android_arm64/share/gst-android/ndk-build/gstreamer_android-1.0.c.in" />
+    <property name="memory.settings.postsync.last.time.stamp" value="1691500752380" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/android-tutorial-5/jni" />
+    </key>
+  </component>
+  <component name="RunManager">
+    <configuration name="android-tutorial-5" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+      <module name="android.android-tutorial-5.main" />
+      <option name="DEPLOY" value="true" />
+      <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+      <option name="DEPLOY_AS_INSTANT" value="false" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ALL_USERS" value="false" />
+      <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+      <option name="CLEAR_APP_STORAGE" value="false" />
+      <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="false" />
+      <option name="INSPECTION_WITHOUT_ACTIVITY_RESTART" value="false" />
+      <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+      <option name="SELECTED_CLOUD_MATRIX_CONFIGURATION_ID" value="-1" />
+      <option name="SELECTED_CLOUD_MATRIX_PROJECT_ID" value="" />
+      <option name="DEBUGGER_TYPE" value="Auto" />
+      <Auto>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+      </Auto>
+      <Hybrid>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+      </Hybrid>
+      <Java />
+      <Native>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+      </Native>
+      <Profilers>
+        <option name="ADVANCED_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Sample (legacy)" />
+        <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
+        <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
+        <option name="PROFILING_MODE" value="NOT_SET" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
+      <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="1904c69f-3c68-4cd4-9e54-9db76231ce19" name="Changes" comment="" />
+      <created>1662568013708</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1662568013708</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java</url>
+          <line>78</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/GStreamer.java</url>
+          <line>17</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java</url>
+          <line>89</line>
+          <option name="timeStamp" value="20" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java</url>
+          <line>82</line>
+          <option name="timeStamp" value="34" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java</url>
+          <line>367</line>
+          <option name="timeStamp" value="64" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java</url>
+          <line>380</line>
+          <option name="timeStamp" value="65" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java</url>
+          <line>169</line>
+          <option name="timeStamp" value="66" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java</url>
+          <line>273</line>
+          <option name="timeStamp" value="81" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="java-line">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/src/org/freedesktop/gstreamer/tutorials/tutorial_5/Tutorial5.java</url>
+          <line>392</line>
+          <option name="timeStamp" value="82" />
+        </line-breakpoint>
+        <line-breakpoint suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>729</line>
+          <option name="timeStamp" value="8" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>267</line>
+          <option name="timeStamp" value="70" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>786</line>
+          <option name="timeStamp" value="77" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>462</line>
+          <option name="timeStamp" value="84" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>1012</line>
+          <option name="timeStamp" value="85" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>924</line>
+          <option name="timeStamp" value="86" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>1148</line>
+          <option name="timeStamp" value="89" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>1163</line>
+          <option name="timeStamp" value="91" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>1325</line>
+          <option name="timeStamp" value="94" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>1333</line>
+          <option name="timeStamp" value="95" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/android-tutorial-5/jni/tutorial-5.c</url>
+          <line>535</line>
+          <option name="timeStamp" value="96" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
