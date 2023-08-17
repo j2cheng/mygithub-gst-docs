@@ -71,6 +71,8 @@ typedef struct _CustomData
                                  *      videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink
                                  *      rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa ! rtph264depay ! decodebin ! videoconvert ! autovideosink */
   GstElement *video_sink;       /* The video sink from the pipeline */                                 
+
+  gboolean drop_valve;          //not used                     
 //Crestron change ends
 } CustomData;
 
@@ -412,6 +414,21 @@ buffering_cb (GstBus * bus, GstMessage * msg, CustomData * data)
     }
 }
 
+if(0)
+{
+  GstElement *ele = gst_bin_get_by_name(GST_BIN(data->pipeline), "dropv");
+  if(ele)
+  {
+    GST_ERROR("buffering_cb found 'dropv'[%p] ",ele);
+  }
+  else
+  {
+    GST_ERROR("buffering_cb faile to get 'dropv'");
+  }
+}
+
+
+
   if (data->is_live)
     return;
 
@@ -432,6 +449,26 @@ buffering_cb (GstBus * bus, GstMessage * msg, CustomData * data)
     GST_DEBUG ("buffering_cb calling set_ui_message Buffering complete");
     set_ui_message ("Buffering complete", data);
   }
+
+  if(0)//data->drop_valve == true) -- not used
+  {
+    GstElement *ele = gst_bin_get_by_name(GST_BIN(data->pipeline), "dropv");
+    if(ele)
+    {
+      GST_ERROR("buffering_cb found 'dropv'[%p] ",ele);
+      if(percent > 20)
+      {
+        data->drop_valve = false;
+        g_object_set(G_OBJECT(ele), "drop", FALSE, NULL);
+        GST_ERROR("buffering_cb set 'dropv'to false ");
+      }//else
+    }
+    else
+    {
+      GST_ERROR("buffering_cb faile to get 'dropv'");
+    }
+  }
+
 }
 
 /* Called when the clock is lost */
@@ -588,7 +625,7 @@ state_changed_cb (GstBus * bus, GstMessage * msg, CustomData * data)
     /* The Ready to Paused state change is particularly interesting: */
     if (old_state == GST_STATE_READY && new_state == GST_STATE_PAUSED) {
       
-      GST_DEBUG("state_changed_cb:calling check_media_size");
+      GST_DEBUG("state_changed_cb:calling check_media_size",data->desired_position);
 
       /* By now the sink already knows the media size */
       check_media_size (data);
@@ -780,7 +817,17 @@ gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
 
           /* If there was a scheduled seek, perform it now that we have moved to the Paused state */
           if (GST_CLOCK_TIME_IS_VALID (data->desired_position))
-            execute_seek (data->desired_position, data);
+          {
+            //Note: 8-17-2023: not sure if seek causing any issue or not.
+            //      commented out for now.
+            GST_DEBUG ("%s: skipped calling execute_seek ",__FUNCTION__);
+            //execute_seek (data->desired_position, data);
+          }
+          else
+          {
+            GST_DEBUG ("%s: invalid desired_position %" GST_TIME_FORMAT,
+                       __FUNCTION__,GST_TIME_ARGS (data->desired_position));        
+          }
         }
 
         if(new_state == GST_STATE_PLAYING)
@@ -809,9 +856,56 @@ gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
     case GST_MESSAGE_BUFFERING:
     {
         gst_message_parse_buffering (msg, &percent);
-        GST_DEBUG("buffer pct=%d\n", percent);   
 
-        GST_DEBUG("target_state=%d\n", data->target_state);
+        GST_DEBUG("%s: target_state=%d,buffer pct=%d\n",__FUNCTION__, data->target_state,percent);
+        
+        GstObject *obj = GST_MESSAGE_SRC(msg);
+        GST_DEBUG("%s: g_type_name[%s]",__FUNCTION__, g_type_name(G_OBJECT_TYPE(obj)));
+
+        if(!strcmp( g_type_name(G_OBJECT_TYPE(obj)),"GstQueue2"))
+        {
+            guint64 current_level_time;
+            g_object_get (obj, "current-level-time", &current_level_time, NULL);
+
+            GST_DEBUG ("%s: data->state[%d] current_level_time %" GST_TIME_FORMAT,
+                       __FUNCTION__,data->state,GST_TIME_ARGS (current_level_time));
+
+            //queue->cur_level.time = queue->sinktime - queue->srctime;
+        }//else
+
+        if(0)//just to see throttle settings
+        {
+          GstElement *ele = gst_bin_get_by_name(GST_BIN(data->pipeline), "myaudiosink");
+          if(ele)
+          {
+            GST_ERROR("buffering_cb found 'myaudiosink'[%p] ",ele);
+            guint64 throttle = gst_base_sink_get_throttle_time (ele);
+            GST_ERROR("%s: throttle is %lld",__FUNCTION__,throttle);
+          }
+          else
+          {
+            GST_ERROR("buffering_cb faile to get 'myaudiosink'");
+          }          
+        }
+
+        if(0)//if(data->drop_valve == true) -- not working
+        {
+          GstElement *ele = gst_bin_get_by_name(GST_BIN(data->pipeline), "dropv");
+          if(ele)
+          {
+            GST_ERROR("buffering_cb found 'dropv'[%p] ",ele);
+            if(percent > 20)
+            {
+              data->drop_valve = false;
+              g_object_set(G_OBJECT(ele), "drop", FALSE, NULL);
+              GST_ERROR("buffering_cb set 'dropv'to false ");
+            }//else
+          }
+          else
+          {
+            GST_ERROR("buffering_cb faile to get 'dropv'");
+          }
+        }
 
         if (percent < 100 && data->target_state >= GST_STATE_PAUSED) 
         {
@@ -872,6 +966,11 @@ gboolean csio_GstMsgHandler(GstBus *bus, GstMessage *msg, void *arg)
     {
         GST_DEBUG("%s: GST_MESSAGE_LATENCY\n",__FUNCTION__);        
         break;
+    }
+    default:
+    {
+      GST_DEBUG("%s: unknown GST_MESSAGE_TYPE name[%s]",__FUNCTION__,GST_MESSAGE_TYPE_NAME(msg));
+      break;
     }
   }
   GST_DEBUG("%s: exit GST_MESSAGE_TYPE name[%s]",__FUNCTION__,GST_MESSAGE_TYPE_NAME(msg));
@@ -1153,7 +1252,7 @@ app_function (void *userdata)
   //                                    " rtph264depay ! decodebin ! videoconvert ! glimagesink", &error);
 
   // data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,width=1080,height=720 ! autovideosink", &error);                                       2,000,000,000 
-  data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! queue2 use-buffering=true max-size-buffers=0 max-size-bytes=0 max-size-time=10000000000 ! videoconvert ! glimagesink", &error);
+  //data->pipeline = gst_parse_launch ("videotestsrc ! video/x-raw,format=YUY2 ! queue2 use-buffering=true max-size-buffers=0 max-size-bytes=0 max-size-time=10000000000 ! videoconvert ! glimagesink", &error);
   // data->pipeline = gst_parse_launch ("rtspsrc location=rtsp://170.93.143.139/rtplive/e40037d1c47601b8004606363d235daa !"
   //                                    " rtph264depay ! decodebin ! queue ! videoconvert ! autovideosink", &error);
   
@@ -1174,11 +1273,43 @@ app_function (void *userdata)
 //                                       " dmux. ! queue ! aacparse ! amcauddec-omxgoogleaacdecoder ! queue ! audioconvert ! audioresample ! openslessink render-delay=2000000000"
 //                                       " dmux. ! queue ! h264parse ! amcviddec-omxqcomvideodecoderavc ! queue ! videoconvert ! glimagesink",
 //                                     &error);
+
+//  queue2 use-buffering=true max-size-buffers=0 max-size-bytes=0 max-size-time=10000000000
 //  data->pipeline = gst_parse_launch ("souphttpsrc location=http://10.64.134.2/High-Bass.mp4 !"
 //                                       " qtdemux name=dmux "
-//                                       " dmux. ! queue ! aacparse ! amcauddec-omxgoogleaacdecoder ! queue ! audioconvert ! audioresample ! openslessink  sync=false"
-//                                       " dmux. ! queue ! h264parse ! amcviddec-omxqcomvideodecoderavc ! videoconvert ! queue ! glimagesink sync=false",
+//                                       " dmux. ! queue ! aacparse ! amcauddec-omxgoogleaacdecoder ! queue max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! audioconvert ! audioresample ! openslessink  sync=false"
+//                                       " dmux. ! queue ! h264parse ! amcviddec-omxqcomvideodecoderavc ! videoconvert ! queue max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! glimagesink sync=false",
 //                                     &error);//have static
+// data->pipeline = gst_parse_launch ("souphttpsrc location=http://10.64.134.2/High-Bass.mp4 ! queue2 use-buffering=true max-size-buffers=0 max-size-bytes=0 max-size-time=10000000000 ! "
+
+// data->pipeline = gst_parse_launch ("souphttpsrc location=http://10.64.134.2/High-Bass.mp4 ! "
+//                                       " qtdemux name=demux "
+//                                       " demux.audio_0  ! queue2 use-buffering=true max-size-buffers=0 max-size-bytes=0 max-size-time=10000000000 ! aacparse ! amcauddec-omxgoogleaacdecoder ! queue max-size-buffers=0 max-size-bytes=0 max-size-time=0  ! valve drop=true name=dropv ! audioconvert ! audioresample ! openslessink  sync=false"
+//                                       " demux.video_0  ! queue  max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! h264parse ! amcviddec-omxqcomvideodecoderavc ! videoconvert ! queue max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! glimagesink sync=false",
+//                                     &error);
+// data->drop_valve = true;
+
+//filesrc location=/data/data/High-Bass.mp4
+//souphttpsrc location=http://10.64.134.2/High-Bass.mp4
+data->pipeline = gst_parse_launch ("souphttpsrc location=http://10.64.134.2/High-Bass.mp4 ! "
+                                      " qtdemux name=demux "
+                                      " demux.audio_0  ! queue2 use-buffering=true max-size-buffers=0 max-size-bytes=0 max-size-time=10000000000 ! "
+                                                       "aacparse ! amcauddec-omxgoogleaacdecoder ! "
+                                                       "queue max-size-buffers=0 max-size-bytes=0 max-size-time=0  ! "
+                                                       "audioconvert ! audioresample ! "
+                                                       "tee name=t "
+                                                       "t. ! queue ! filesink location=/data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/pcmraw "
+                                                       "t. ! queue ! audio/x-raw, rate=48000 ! "
+                                                       "openslessink  name = myaudiosink throttle-time=10000000 sync=true"
+                                      " demux.video_0  ! queue  max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! h264parse ! amcviddec-omxqcomvideodecoderavc ! videoconvert ! queue max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! glimagesink sync=true",
+                                    &error);
+
+// data->pipeline = gst_parse_launch ("souphttpsrc location=http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4 ! "
+//                                       " qtdemux name=demux "
+//                                       " demux.audio_0  ! queue2 use-buffering=true max-size-buffers=0 max-size-bytes=0 max-size-time=10000000000 ! aacparse ! amcauddec-omxgoogleaacdecoder ! queue max-size-buffers=0 max-size-bytes=0 max-size-time=0  ! audioconvert ! audioresample ! openslessink  name = myaudiosink throttle-time=10000000 sync=true"
+//                                       " demux.video_0  ! queue  max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! h264parse ! amcviddec-omxqcomvideodecoderavc ! videoconvert ! queue max-size-buffers=0 max-size-bytes=0 max-size-time=0 ! glimagesink sync=true",
+//                                     &error);
+
   // data->pipeline = gst_parse_launch ("filesrc location=/data/data/org.freedesktop.gstreamer.tutorials.tutorial_5/High-Bass.mp4 ! queue2 use-buffering=true "
   //                                    " qtdemux name=dmux "
   //                                    " dmux. ! queue ! aacparse ! amcauddec-omxgoogleaacdecoder ! queue ! audioconvert ! audioresample ! openslessink  sync=false"
@@ -1287,11 +1418,12 @@ gst_native_init (JNIEnv * env, jobject thiz)
   gst_debug_set_threshold_for_name ("rtpjitterbuffer", GST_LEVEL_INFO);//Crestron change
   gst_debug_set_threshold_for_name ("amcvideodec", GST_LEVEL_WARNING);//Crestron change
 
-  gst_debug_set_threshold_for_name ("queue2", GST_LEVEL_DEBUG);
+  gst_debug_set_threshold_for_name ("queue2", GST_LEVEL_LOG);
   gst_debug_set_threshold_for_name ("audiodecoder", GST_LEVEL_DEBUG);
   gst_debug_set_threshold_for_name ("aacparse", GST_LEVEL_DEBUG);
   gst_debug_set_threshold_for_name ("baseparse", GST_LEVEL_DEBUG);
   gst_debug_set_threshold_for_name ("audiobasesink", GST_LEVEL_DEBUG);
+  gst_debug_set_threshold_for_name ("basesink", GST_LEVEL_DEBUG);
 
   pthread_create (&gst_app_thread, NULL, &app_function, data);
 
@@ -1400,7 +1532,13 @@ gst_native_set_position (JNIEnv * env, jobject thiz, int milliseconds)
   if (!data)
     return;
   gint64 desired_position = (gint64) (milliseconds * GST_MSECOND);
+
+  GST_DEBUG ("%s: data->state[%d] desired_position set to %" GST_TIME_FORMAT,
+             __FUNCTION__,data->state,GST_TIME_ARGS (desired_position));
+
   if (data->state >= GST_STATE_PAUSED) {
+
+    GST_DEBUG ("%s: calling execute_seek",__FUNCTION__);
     execute_seek (desired_position, data);
   } else {
     GST_DEBUG ("Scheduling seek to %" GST_TIME_FORMAT " for later",
