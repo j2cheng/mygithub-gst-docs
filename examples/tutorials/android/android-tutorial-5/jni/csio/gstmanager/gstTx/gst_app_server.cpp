@@ -306,11 +306,24 @@ void* GstAppServer::ThreadEntry()
         "audiotestsrc ! audio/x-raw,rate=8000 ! "
         "alawenc ! rtppcmapay name=pay1 pt=97 " ")");
 
+    //this is working
+    //  gst_rtsp_media_factory_set_launch (m_factory, "( "
+    //      "videotestsrc ! video/x-raw,width=352,height=288,framerate=15/1 ! "
+    //      "x264enc ! rtph264pay name=pay0 pt=96 "
+    //      "audiotestsrc ! audio/x-raw,rate=8000 ! "
+    //      "alawenc ! rtppcmapay name=pay1 pt=97 " ")");
+    
+    //this is working
     // gst_rtsp_media_factory_set_launch (m_factory, 
     //     "( "
     //     "videotestsrc ! x264enc ! rtph264pay name=pay0 pt=96 "
     //     ")"   );
 
+    //./test-launch "( uridecodebin uri=file:///home/builduser/Videos/AV2.mp4 name=d d. ! x264enc ! rtph264pay name=pay0 pt=96 d. ! audioconvert ! audioresample  ! alawenc ! rtppcmapay pt=97 name=pay1 )"
+
+
+
+    
 //    gst_rtsp_media_factory_set_launch (m_factory, "( "
 //        "audiotestsrc ! audio/x-raw,rate=8000 ! "
 //        "alawenc ! rtppcmapay name=pay0 pt=97 " ")");

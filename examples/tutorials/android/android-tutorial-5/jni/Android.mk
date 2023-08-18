@@ -11,6 +11,14 @@ LOCAL_SRC_FILES += csio/csio.cpp \
                    csio/gstmanager/gstTx/gst_app_server.cpp \
                    csio/armhdcp/Hdcp_Module.cpp
 
+$(warning $(LOCAL_PATH))
+$(warning "=============================================================")
+
+#HDCP_INC := csio/hdcp/include
+
+#LOCAL_CFLAGS += -I$(LOCAL_PATH)/$(HDCP_INC)
+### LOCAL_C_INCLUDES  := $(LOCAL_PATH)/$(HDCP_INC)
+
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/core/inc \
                     /home/builduser/gst-docs/AOSP/core/libutils/include \
                     /home/builduser/gst-docs/AOSP/core/libcutils/include \
