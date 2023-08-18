@@ -26,14 +26,14 @@
 #include <stdlib.h>  //for EXIT_FAILURE
 #include <sys/time.h> //for gettimeofday
 
-#include "json/json.h"
+//#include "json/json.h"
 
-#include "cresstore.h"
+//#include "cresstore.h"
 
-#include "crestDBIntf_utils/crestDBIntf_utils.h"
+//#include "crestDBIntf_utils/crestDBIntf_utils.h"
 
 #include "crestDBIntf.h"
-#include "csioutils.h"   //Note: this header need csioCommonShare.h
+//#include "csioutils.h"   //Note: this header need csioCommonShare.h
 
 #define MAX_PROJCT_OBJ          1
 #define CRESTORE_SUBSCRIBE_STR      "Device:XioSubscription*"
@@ -42,18 +42,13 @@
 #define DB_SUBSCRIBE_STR            "Device:XioSubscription"
 #define DB_ROUTING_STR              "Device:Routing"
 
+#define CSIO_LOG
+
 static void ProjectSendEvent(int iId, int evnt, int data_size, void* bufP);
 
 CCrestDBIntfProject** CrestDBIntfProjList = NULL ;
 int CrestDBIntfProjDebugLevel = CSIO_DEFAULT_LOG_LEVEL;
 static Mutex gProjectsLock;
-
-const STRNUMPAIR rtsp_serv_mode_names[CREST_DB_TXRX_MODE_MAX + 1] =
-{
-    {"CREST_DB_TXRX_MODE_TX" , CREST_DB_TXRX_MODE_TX},
-    {"CREST_DB_TXRX_MODE_RX" , CREST_DB_TXRX_MODE_RX},
-    {0,0}//terminate the list
-};
 
 extern int start_Subscribing(int subscr_id,char * url,int connMode);
 extern void stop_Subscribing(int id,int connMode);
@@ -77,7 +72,7 @@ void CrestDBIntfProjectInit()
         CSIO_LOG(CrestDBIntfProjDebugLevel, "CrestDBIntf_project: CrestDBIntfProjList[0]:0x%x\n",CrestDBIntfProjList[0]);
 
         //create only one project thread for now
-        CrestDBIntfProjList[0]->CreateNewThread();
+        CrestDBIntfProjList[0]->CreateNewThread("DBIntf",NULL);
     }
     else
     {
@@ -133,7 +128,7 @@ void CrestDBIntf_SetDebugLevel(int level)
 
     if(level > eLogLevel_extraVerbose)
     {
-        gCrestDBIntfUtilsDebugLevel = eLogLevel_extraVerbose;
+        int gCrestDBIntfUtilsDebugLevel = eLogLevel_extraVerbose;//not used
     }
     else if(CrestDBIntfProjList)
     {
@@ -170,16 +165,16 @@ void CrestDBIntf_ProjectDumpClassPara(int level)
 
                 CrestDBIntfProjList[i]->DumpClassPara(level);
 
-                if(CrestDBIntfProjList[i]->m_CrestDBIntfTaskObjList)
-                {
-                    for(int j = 0; j < MAX_TOTAL_TASKS; j++)
-                    {
-                        if(CrestDBIntfProjList[i]->m_CrestDBIntfTaskObjList[j])
-                        {
-                            CrestDBIntfProjList[i]->m_CrestDBIntfTaskObjList[j]->DumpClassPara(level);
-                        }
-                    }
-                }
+//                if(CrestDBIntfProjList[i]->m_CrestDBIntfTaskObjList)
+//                {
+//                    for(int j = 0; j < MAX_TOTAL_TASKS; j++)
+//                    {
+//                        if(CrestDBIntfProjList[i]->m_CrestDBIntfTaskObjList[j])
+//                        {
+//                            CrestDBIntfProjList[i]->m_CrestDBIntfTaskObjList[j]->DumpClassPara(level);
+//                        }
+//                    }
+//                }
             }
         }
     }
@@ -192,13 +187,13 @@ void CrestDBIntf_ProjectDumpClassPara(int level)
 }
 void CrestDBIntf_add_rtspUrlToDB(const char*)
 {
-    void * cs = CrestDBIntf_takeCresDBIntf();
-    if(cs)
-    {
+    // void * cs = CrestDBIntf_takeCresDBIntf();
+    // if(cs)
+    // {
 
-    }
+    // }
 
-    CrestDBIntf_releaseCresDBIntf();
+    // CrestDBIntf_releaseCresDBIntf();
 }
 
 void* CrestDBIntf_takeCresDBIntf()
@@ -211,7 +206,7 @@ void* CrestDBIntf_takeCresDBIntf()
     {
         if(CrestDBIntfProjList[0])//only one project for now
         {
-            retV = CrestDBIntfProjList[0]->m_takeCS_and_lock();
+            retV = 0;//CrestDBIntfProjList[0]->m_takeCS_and_lock();
 
             CSIO_LOG(CrestDBIntfProjDebugLevel, "CrestDBIntf_project: taskObjList[0x%x],retV[0x%x].\n",
                      CrestDBIntfProjList[0]->m_CrestDBIntfTaskObjList,retV);
@@ -238,7 +233,7 @@ void CrestDBIntf_releaseCresDBIntf()
             CSIO_LOG(CrestDBIntfProjDebugLevel, "CrestDBIntf_project: taskObjList[0x%x].\n",
                      CrestDBIntfProjList[0]->m_CrestDBIntfTaskObjList);
 
-            CrestDBIntfProjList[0]->unlockCresstoreDb();
+//            CrestDBIntfProjList[0]->unlockCresstoreDb();
         }
     }
     else
@@ -266,8 +261,8 @@ static void ProjectSendEvent(int iId, int evnt, int data_size, void* bufP)
     if(CrestDBIntfProjList && CrestDBIntfProjList[0])
     {
         CSIO_LOG(CrestDBIntfProjDebugLevel, "CrestDBIntf_project: [%d]call sendEvent.\n",iId);
-        EventQueueStruct EvntQ;
-        memset(&EvntQ,0,sizeof(EventQueueStruct));
+        csioEventQueueStruct EvntQ;
+        memset(&EvntQ,0,sizeof(csioEventQueueStruct));
         EvntQ.obj_id = iId;
         EvntQ.event_type = evnt;
         EvntQ.buf_size   = data_size;
@@ -282,18 +277,6 @@ static void ProjectSendEvent(int iId, int evnt, int data_size, void* bufP)
     }
 }
 
-static char* getManagerModeNames(int mode)
-{
-    for(int i = 0; i < CREST_DB_TXRX_MODE_MAX; i++)
-    {
-        if(mode == rtsp_serv_mode_names[i].num)
-            return rtsp_serv_mode_names[i].pStr;
-        else
-            continue;
-    }
-
-    return "ERROR";
-}
 /*********************CCrestDBIntfProject functions **************************/
 CCrestDBIntfProject::CCrestDBIntfProject(int iId):
 m_projectID(iId)//,
@@ -301,9 +284,9 @@ m_projectID(iId)//,
 {
     m_debugLevel = CrestDBIntfProjDebugLevel;
 
-    m_projEvent  = new CrestDBIntfEvent(CREST_DB_EVENTS_MAX);
+    m_projEvent  = new csioEventQueueListBase(CREST_DB_EVENTS_MAX);
 
-    m_projEventQ = new CrestDBIntfEventRingBuffer(EVNT_DEFAULT_QUEUE_SIZE);
+    // m_projEventQ = new CrestDBIntfEventRingBuffer(EVNT_DEFAULT_QUEUE_SIZE);
 
     mLock        = new Mutex();
 
@@ -379,8 +362,8 @@ void CCrestDBIntfProject::cresstoreCallback(char * key, char * json, void * user
     {
         gProjectsLock.lock();
 
-        EventQueueStruct EvntQ;
-        memset(&EvntQ,0,sizeof(EventQueueStruct));
+        csioEventQueueStruct EvntQ;
+        memset(&EvntQ,0,sizeof(csioEventQueueStruct));
         EvntQ.obj_id     = 0;
         EvntQ.event_type = CREST_DB_EVENTS_SUBSCRIB;
         EvntQ.buf_size   = strlen(json);
@@ -395,8 +378,8 @@ void CCrestDBIntfProject::cresstoreCallback(char * key, char * json, void * user
     {
         gProjectsLock.lock();
 
-        EventQueueStruct EvntQ;
-        memset(&EvntQ,0,sizeof(EventQueueStruct));
+        csioEventQueueStruct EvntQ;
+        memset(&EvntQ,0,sizeof(csioEventQueueStruct));
         EvntQ.obj_id     = 0;
         EvntQ.event_type = CREST_DB_EVENTS_ROUTING;
         EvntQ.buf_size   = strlen(json);
@@ -439,8 +422,8 @@ void CCrestDBIntfProject::cresstoreCallback(char * key, char * json, void * user
                                 evntConf.pUuidString = uuidString.c_str();
                                 evntConf.pURLString  = uriString.c_str();
 
-                                EventQueueStruct EvntQ;
-                                memset(&EvntQ,0,sizeof(EventQueueStruct));
+                                csioEventQueueStruct EvntQ;
+                                memset(&EvntQ,0,sizeof(csioEventQueueStruct));
                                 EvntQ.obj_id     = 0;
                                 EvntQ.event_type = CREST_DB_EVENTS_SUBSCRIB;
                                 EvntQ.buf_size   = sizeof(CrestDBIntfEventConfig);
@@ -457,8 +440,8 @@ void CCrestDBIntfProject::cresstoreCallback(char * key, char * json, void * user
                         {
                             gProjectsLock.lock();
 
-                            EventQueueStruct EvntQ;
-                            memset(&EvntQ,0,sizeof(EventQueueStruct));
+                            csioEventQueueStruct EvntQ;
+                            memset(&EvntQ,0,sizeof(csioEventQueueStruct));
                             EvntQ.obj_id     = 0;
                             EvntQ.event_type = CREST_DB_EVENTS_ROUTING;
                             EvntQ.buf_size   = strlen(json);
@@ -561,7 +544,7 @@ void* CCrestDBIntfProject::ThreadEntry()
         //TODO: we need to check wtRtn here
         //CSIO_LOG(eLogLevel_extraVerbose, "CrestDBIntf_project: waitForEvent return:%d, event ID:%d\n",wtRtn,evntId);
 
-        EventQueueStruct evntQ;
+        csioEventQueueStruct evntQ;
 
         if(m_projEventQ->GetFromBuffer(&evntQ))
         {
@@ -742,13 +725,13 @@ void* CCrestDBIntfProject::ThreadEntry()
 
     return NULL;
 }
-void CCrestDBIntfProject::sendEvent(EventQueueStruct* pEvntQ)
+void CCrestDBIntfProject::sendEvent(csioEventQueueStruct* pEvntQ)
 {
     //TODO: need to work on buffer copy
     if(m_projEvent && m_projEventQ && pEvntQ)
     {
-        EventQueueStruct evntQ;
-        memset(&evntQ,0,sizeof(EventQueueStruct));
+        csioEventQueueStruct evntQ;
+        memset(&evntQ,0,sizeof(csioEventQueueStruct));
         evntQ.obj_id  = pEvntQ->obj_id;
         evntQ.event_type    = pEvntQ->event_type;
         evntQ.buf_size      = 0;
@@ -967,50 +950,4 @@ void CCrestDBIntfProject::deleteThisItem(int index)
         m_subscrUriArray[index].clear();
     }
 }
-/***************************** CCrestDBIntfManager class **************************************/
-CCrestDBIntfManager::CCrestDBIntfManager(int iId, void * cs):
-m_txrx_manager_id(iId),
-m_crestoreDbPtr(cs)
-{
-    mLock            = new Mutex();
 
-    if(!mLock)
-        CSIO_LOG(eLogLevel_error, "CrestDBIntf_manager: CCrestDBIntfManager malloc failed:[0x%x]\n",\
-                 mLock);
-}
-
-CCrestDBIntfManager::~CCrestDBIntfManager()
-{
-    if(mLock)
-        delete mLock;    
-
-    CSIO_LOG(m_debugLevel, "CrestDBIntf_manager: ~CCrestDBIntfManager delete m_CrestDBIntfManagerEvent is DONE\n");
-}
-
-void CCrestDBIntfManager::DumpClassPara(int l)
-{
-    CSIO_LOG(eLogLevel_info, "---CrestDBIntf_manager: m_txrx_manager_id:   %d.\n",m_txrx_manager_id);
-    CSIO_LOG(eLogLevel_info, "---CrestDBIntf_manager: m_debugLevel         %d\n", m_debugLevel);
-    CSIO_LOG(eLogLevel_info, "---CrestDBIntf_manager: m_ThreadIsRunning    %d\n", m_ThreadIsRunning);
-
-    if(m_crestoreDbPtr)
-        CSIO_LOG(eLogLevel_info, "---CrestDBIntf_manager: m_crestoreDbPtr: 0x%x\n", m_crestoreDbPtr);
-}
-
-
-void* CCrestDBIntfManager::ThreadEntry()
-{
-    CSIO_LOG(m_debugLevel, "CrestDBIntf_manager: Enter CrestDBIntf_manager ThreadEntry, ID:%d, this[0x%x],m_crestoreDbPtr[0x%x]\n",\
-            m_txrx_manager_id,this,m_crestoreDbPtr);
-
-    if(m_crestoreDbPtr)
-        cresstore_event_loop(m_crestoreDbPtr,1);
-
-    CSIO_LOG(m_debugLevel, "CrestDBIntf_manager: CrestDBIntf_manager ID:%d exiting...\n",m_txrx_manager_id);
-
-    //thread exit here
-    m_ThreadIsRunning = 0;
-
-    return NULL;
-}
-/***************************** end of CrestDBIntf manager class **************************************/

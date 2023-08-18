@@ -1,7 +1,7 @@
 #ifndef _CRESTDBINTF_H_
 #define _CRESTDBINTF_H_
 
-#include "string_utils.h"            // for LocalConvertToUpper
+#include "csioCommBase.h"
 
 #define MAX_STR_LEN    256
 
@@ -10,8 +10,6 @@
 #define MAX_XIO_SUBCRIPTION   64
 
 #define IsValidCrestDBIntfId(a)  ( (a >= 0) && (a < MAX_XIO_SUBCRIPTION) )
-#define ABOVE_DEBUG_VERB(a)    (a+1)
-#define ABOVE_DEBUG_XTRVERB(a) (a+2)
 
 typedef struct _CrestDBIntfEventConfig
 {
@@ -21,30 +19,11 @@ typedef struct _CrestDBIntfEventConfig
 
 }CrestDBIntfEventConfig;
 
-typedef enum _eCresDBIntfTxRx_Mode
-{
-    CREST_DB_TXRX_MODE_RX = 0,
-    CREST_DB_TXRX_MODE_TX ,
-   
-
-    CREST_DB_TXRX_MODE_MAX
-}eCresDBIntfTxRx_Mode;
-
-typedef enum _eCREST_DBEvents
-{
-    CREST_DB_EVENTS_SUBSCRIB,
-    CREST_DB_EVENTS_ROUTING,
-    CREST_DB_EVENTS_MAX
-}eCREST_DBEvents;
-
-
-#ifdef _CRESTDBINTF_UTILS_H_
-
 class CCrestDBIntfManager;
 class CrestDBIntfEventRingBuffer;
-class CrestDBIntfEvent;
+class csioEventQueueListBase;
 
-class CCrestDBIntfProject : public CrestDBIntfProjBaseClass
+class CCrestDBIntfProject : public csioThreadBaseClass
 {
 public:
 
@@ -54,7 +33,7 @@ public:
     void    DumpClassPara(int);
     virtual void* ThreadEntry();
 
-    void sendEvent(EventQueueStruct* pEvntQ);
+    void sendEvent(csioEventQueueStruct* pEvntQ);
 
     void removeAllTasks();
 
@@ -71,8 +50,8 @@ public:
 
     virtual void setDebugLevel(int level);
 
-    CrestDBIntfEvent *m_projEvent;
-    CrestDBIntfEventRingBuffer *m_projEventQ;
+    csioEventQueueListBase *m_projEvent;
+    // CrestDBIntfEventRingBuffer *m_projEventQ;
 
     CCrestDBIntfManager** m_CrestDBIntfTaskObjList;
     
@@ -118,31 +97,7 @@ private:
 
 };
 
-class CCrestDBIntfManager : public CrestDBIntfProjBaseClass
-{
-public:
 
-    CCrestDBIntfManager(int iId, void * cs);
-    ~CCrestDBIntfManager();
-
-    void DumpClassPara(int);
-    virtual void* ThreadEntry();
-    
-    void lockManager(){if(mLock) mLock->lock();}
-    void unlockManager(){if(mLock) mLock->unlock();}
-    void setDebugLevel(int level) { m_debugLevel = level; }
-
-    int  m_debugLevel;
-    int  m_RTSPStreamId;
-
-    int  m_txrx_manager_id;
-
-private:
-
-    Mutex* mLock;
-    void * m_crestoreDbPtr;
-};
-#endif
 
 //functions will be called from external
 #ifdef __cplusplus
