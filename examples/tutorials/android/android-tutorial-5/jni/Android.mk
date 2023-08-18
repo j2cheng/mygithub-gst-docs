@@ -15,7 +15,6 @@ $(warning $(LOCAL_PATH))
 $(warning "=============================================================")
 
 #HDCP_INC := csio/hdcp/include
-
 #LOCAL_CFLAGS += -I$(LOCAL_PATH)/$(HDCP_INC)
 ### LOCAL_C_INCLUDES  := $(LOCAL_PATH)/$(HDCP_INC)
 
